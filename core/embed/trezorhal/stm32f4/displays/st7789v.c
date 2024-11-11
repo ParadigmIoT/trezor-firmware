@@ -60,8 +60,8 @@ __IO DISP_MEM_TYPE *const DISPLAY_DATA_ADDRESS =
                                 (DISPLAY_ADDR_SHIFT << DISPLAY_MEMORY_PIN));
 
 #ifdef FRAMEBUFFER
-#ifndef STM32U5
-#error Framebuffer only supported on STM32U5 for now
+#ifndef STM32WB55
+#error Framebuffer only supported on STM32WB55 for now
 #endif
 
 #ifndef BOARDLOADER

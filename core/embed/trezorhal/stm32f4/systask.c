@@ -617,13 +617,13 @@ __attribute__((naked, no_stack_protector)) void SecureFault_Handler(void) {
 }
 #endif
 
-#ifdef STM32U5
+#ifdef STM32WB55
 void GTZC_IRQHandler(void) { systask_exit_fault(true, __get_MSP()); }
 #endif
 
 void NMI_Handler(void) {
   mpu_mode_t mpu_mode = mpu_reconfig(MPU_MODE_DEFAULT);
-#ifdef STM32U5
+#ifdef STM32WB55
   if ((RCC->CIFR & RCC_CIFR_CSSF) != 0) {
 #else
   if ((RCC->CIR & RCC_CIR_CSSF) != 0) {

@@ -37,8 +37,8 @@
 #include "bg_copy.h"
 #endif
 
-#ifndef STM32U5
-#error Framebuffer only supported on STM32U5 for now
+#ifndef STM32WB55
+#error Framebuffer only supported on STM32WB55 for now
 #endif
 
 #ifdef KERNEL_MODE

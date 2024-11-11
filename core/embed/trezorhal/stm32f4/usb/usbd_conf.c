@@ -99,7 +99,7 @@ void HAL_PCD_MspInit(PCD_HandleTypeDef *hpcd)
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
-#ifdef STM32U5
+#ifdef STM32WB55
     GPIO_InitStruct.Alternate = GPIO_AF10_USB;
 #else
     GPIO_InitStruct.Alternate = GPIO_AF10_OTG_FS;
@@ -128,7 +128,7 @@ void HAL_PCD_MspInit(PCD_HandleTypeDef *hpcd)
     /* Enable USB FS Clocks */
     __HAL_RCC_USB_OTG_FS_CLK_ENABLE();
 
-#ifdef STM32U5
+#ifdef STM32WB55
 
     /* Enable VDDUSB */
     __HAL_RCC_PWR_CLK_ENABLE();
@@ -201,7 +201,7 @@ void HAL_PCD_MspInit(PCD_HandleTypeDef *hpcd)
     /* Enable USB HS Clocks */
     __USB_OTG_HS_CLK_ENABLE();
 
-#elif defined USE_USB_HS_INTERNAL_PHY && defined STM32U5
+#elif defined USE_USB_HS_INTERNAL_PHY && defined STM32WB55
 
     /* Configure DM and DP PINs */
     __HAL_RCC_GPIOA_CLK_ENABLE();
@@ -521,7 +521,7 @@ USBD_StatusTypeDef  USBD_LL_Init (USBD_HandleTypeDef *pdev)
     }
   }
 #endif
-#if defined(USE_USB_HS) && !defined(USE_USB_HS_IN_FS) && defined STM32U5
+#if defined(USE_USB_HS) && !defined(USE_USB_HS_IN_FS) && defined STM32WB55
   // Trezor T uses the OTG_HS peripheral
   if (pdev->id == USB_PHY_HS_ID) {
     /* Set LL Driver parameters */
@@ -795,7 +795,7 @@ void  USBD_LL_Delay(uint32_t Delay)
   * @retval None
   */
 #if defined(USE_USB_FS)
-#ifdef STM32U5
+#ifdef STM32WB55
 void OTG_HS_IRQHandler(void) {
 #else
 void OTG_FS_IRQHandler(void) {
@@ -825,7 +825,7 @@ void OTG_HS_IRQHandler(void) {
 }
 #endif
 
-#ifndef STM32U5
+#ifndef STM32WB55
 /**
   * @brief  This function handles USB OTG Common FS/HS Wakeup functions.
   * @param  *pcd_handle for FS or HS

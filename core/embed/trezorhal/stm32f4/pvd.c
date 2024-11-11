@@ -37,7 +37,7 @@ void pvd_init(void) {
   pvd_config.Mode = PWR_PVD_MODE_IT_RISING_FALLING;
   HAL_PWR_ConfigPVD(&pvd_config);
   HAL_PWR_EnablePVD();
-#ifdef STM32U5
+#ifdef STM32WB55
   NVIC_SetPriority(PVD_PVM_IRQn, IRQ_PRI_HIGHEST);
   NVIC_EnableIRQ(PVD_PVM_IRQn);
 #else
@@ -46,7 +46,7 @@ void pvd_init(void) {
 #endif
 }
 
-#ifdef STM32U5
+#ifdef STM32WB55
 void PVD_PVM_IRQHandler(void) {
 #else
 void PVD_IRQHandler(void) {

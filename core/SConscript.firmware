@@ -878,6 +878,12 @@ elif 'STM32U5A9xx' in CPPDEFINES_HAL or 'STM32U585xx' in CPPDEFINES_HAL:
         '$HEADERTOOL -h $TARGET ' + ('-D' if not PRODUCTION else ''),
         '$CP $TARGET ' + BINARY_NAME,
         ]
+elif 'STM32WB55xx' in CPPDEFINES_HAL or 'STM32WB55xx' in CPPDEFINES_HAL:
+    action_bin=[
+        '$OBJCOPY -O binary -j .vendorheader -j .header -j .flash -j .data -j .confidential $SOURCE ${TARGET}',
+        '$HEADERTOOL -h $TARGET ' + ('-D' if not PRODUCTION else ''),
+        '$CP $TARGET ' + BINARY_NAME,
+        ]
 else:
     raise Exception("Unknown MCU")
 

@@ -99,7 +99,7 @@ secbool firmware_get_vendor(char* buff, size_t buff_size) {
 }
 
 void firmware_invalidate_header(void) {
-#ifdef STM32U5
+#ifdef STM32WB55
   // on stm32u5, we need to disable the instruction cache before erasing the
   // firmware - otherwise, the write check will fail
   ICACHE->CR &= ~ICACHE_CR_EN;

@@ -64,7 +64,7 @@ bool dma2d_rgb565_fill(const gfx_bitblt_t* bb) {
                     (uint32_t)bb->dst_row + bb->dst_x * sizeof(uint16_t),
                     bb->width, bb->height);
   } else {
-#ifdef STM32U5
+#ifdef STM32WB55
     dma2d_handle.Init.ColorMode = DMA2D_OUTPUT_RGB565;
     dma2d_handle.Init.Mode = DMA2D_M2M_BLEND_FG;
     dma2d_handle.Init.OutputOffset =
@@ -390,7 +390,7 @@ bool dma2d_rgba8888_fill(const gfx_bitblt_t* bb) {
                     (uint32_t)bb->dst_row + bb->dst_x * sizeof(uint32_t),
                     bb->width, bb->height);
   } else {
-#ifdef STM32U5
+#ifdef STM32WB55
     dma2d_handle.Init.ColorMode = DMA2D_OUTPUT_ARGB8888;
     dma2d_handle.Init.Mode = DMA2D_M2M_BLEND_FG;
     dma2d_handle.Init.OutputOffset =

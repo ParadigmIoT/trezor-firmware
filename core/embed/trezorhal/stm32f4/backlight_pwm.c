@@ -91,7 +91,7 @@ void backlight_pwm_init(backlight_action_t action) {
   tmpcr1 |= (uint32_t)TIM_CLOCKDIVISION_DIV1;
 
   // Set the auto-reload preload
-#ifdef STM32U5
+#ifdef STM32WB55
   tmpcr1 |= TIM_AUTORELOAD_PRELOAD_DISABLE;
 #endif
 

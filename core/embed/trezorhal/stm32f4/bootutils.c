@@ -34,7 +34,7 @@
 
 #ifdef KERNEL_MODE
 
-#ifdef STM32U5
+#ifdef STM32WB55
 // Persistent variable that holds the 'command' for the next reboot.
 boot_command_t __attribute__((section(".boot_command"))) g_boot_command;
 #else
@@ -75,7 +75,7 @@ const boot_args_t* bootargs_get_args() { return &g_boot_args; }
 
 // Deletes all secrets and SRAM2 where stack is located
 // to prevent stack smashing error, do not return from function calling this
-#ifdef STM32U5
+#ifdef STM32WB55
 static inline void __attribute__((always_inline)) delete_secrets(void) {
   __disable_irq();
 
@@ -84,7 +84,7 @@ static inline void __attribute__((always_inline)) delete_secrets(void) {
 
   TAMP->CR2 |= TAMP_CR2_BKERASE;
 }
-#endif  // STM32U5
+#endif  // STM32WB55
 
 #ifdef STM32F4
 // Ensure that we are running in privileged thread mode.
@@ -150,7 +150,7 @@ static void __attribute__((noreturn))
 reboot_with_args(boot_command_t command, const void* args, size_t args_size) {
   bootargs_set(command, args, args_size);
 
-#ifdef STM32U5
+#ifdef STM32WB55
   delete_secrets();
   NVIC_SystemReset();
 #else
@@ -180,7 +180,7 @@ void reboot_and_upgrade(const uint8_t hash[32]) {
 void reboot_device(void) {
   bootargs_set(BOOT_COMMAND_NONE, NULL, 0);
 
-#ifdef STM32U5
+#ifdef STM32WB55
   delete_secrets();
 #endif
 
@@ -190,7 +190,7 @@ void reboot_device(void) {
 void __attribute__((noreturn)) secure_shutdown(void) {
   display_deinit(DISPLAY_RETAIN_CONTENT);
 
-#ifdef STM32U5
+#ifdef STM32WB55
   delete_secrets();
 #endif
   // from util.s

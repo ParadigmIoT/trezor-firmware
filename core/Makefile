@@ -73,6 +73,10 @@ OPENOCD_TARGET = target/stm32f4x.cfg
 else ifeq ($(TREZOR_MODEL),$(filter $(TREZOR_MODEL),DISC2))
 MCU = STM32U5
 OPENOCD_TARGET = target/stm32u5x.cfg
+else ifeq ($(TREZOR_MODEL),$(filter $(TREZOR_MODEL),WB55))
+MCU = STM32WB55
+OPENOCD_TARGET = target/stm32wbx.cfg
+MODEL_FEATURE = model_paradigmiot
 else
 $(error Unknown TREZOR_MODEL: $(TREZOR_MODEL))
 endif

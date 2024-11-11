@@ -183,7 +183,7 @@ __attribute((naked, no_stack_protector)) void system_emergency_rescue(
       "LDR     R2, =data_size      \n"
       "BL      memcpy              \n"
 
-#ifdef STM32U5
+#ifdef STM32WB55
       "LDR     R0, =confidential_vma   \n"  // Initialize .confidental
       "LDR     R1, =confidential_lma   \n"
       "LDR     R2, =confidential_size  \n"
@@ -282,7 +282,7 @@ __attribute((naked, no_stack_protector)) void system_emergency_rescue(
 
 #endif  // KERNEL_MODE
 
-#ifdef STM32U5
+#ifdef STM32WB55
 const char* system_fault_message(const system_fault_t* fault) {
   switch (fault->irqn) {
     case HardFault_IRQn:
@@ -303,7 +303,7 @@ const char* system_fault_message(const system_fault_t* fault) {
       return "(FAULT)";
   }
 }
-#else   // STM32U5
+#else   // STM32WB55
 const char* system_fault_message(const system_fault_t* fault) {
   switch (fault->irqn) {
     case HardFault_IRQn:
@@ -320,7 +320,7 @@ const char* system_fault_message(const system_fault_t* fault) {
       return "(FAULT)";
   }
 }
-#endif  // STM32U5
+#endif  // STM32WB55
 
 void system_exit_error(const char* title, const char* message,
                        const char* footer) {

@@ -31,3 +31,10 @@
 [submodule "vendor/stm32u5xx_hal_driver"]
 	path = vendor/stm32u5xx_hal_driver
 	url = https://github.com/trezor/stm32u5xx_hal_driver.git
+
+[submodule "vendor/stm32wbxx_hal_driver"]
+	path = vendor/stm32wbxx_hal_driver
+	url = https://github.com/STMicroelectronics/stm32wbxx-hal-driver.git
+[submodule "vendor/cmsis_device_wb"]
+	path = vendor/cmsis_device_wb
+	url = https://github.com/STMicroelectronics/cmsis-device-wb.git

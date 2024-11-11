@@ -15,6 +15,8 @@
 #include "D001/versions.h"
 #elif defined TREZOR_MODEL_DISC2
 #include "D002/versions.h"
+#elif defined TREZOR_MODEL_WB55
+#include "WB55/versions.h"
 #else
 #error Unknown Trezor model
 #endif
