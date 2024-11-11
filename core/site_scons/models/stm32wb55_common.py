@@ -12,7 +12,7 @@ def stm32wb55_common_files(env, defines, sources, paths):
     paths += [
         "embed/trezorhal/stm32wb55",
         "vendor/stm32wbxx_hal_driver/Inc",
-        "vendor/cmsis_device_wbs/Include",
+        "vendor/cmsis_device_wb/Include",
         "vendor/cmsis_5/CMSIS/Core/Include",
     ]
 
