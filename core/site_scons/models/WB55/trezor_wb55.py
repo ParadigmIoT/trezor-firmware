@@ -12,7 +12,7 @@ def configure(
     paths: list[str],
 ) -> list[str]:
     features_available: list[str] = []
-    board = "WB55/boards/trezor_wb55_revE.h"
+    board = "WB55/boards/trezor_wb55.h"
     display = "st7789v.c"
     hw_model = get_hw_model_as_number("WB55")
     hw_revision = 0
