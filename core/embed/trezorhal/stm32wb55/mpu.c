@@ -26,7 +26,7 @@
 #include "mpu.h"
 #include "sizedefs.h"
 
-#include "stm32wb55xx_ll_cortex.h"
+#include "stm32wbxx_ll_cortex.h"
 
 #ifdef KERNEL_MODE
 

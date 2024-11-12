@@ -26,7 +26,7 @@
 // Convert sector number to address
 //
 // This conversion is used in static assert in definitions below
-#define FLASH_SECTOR_TO_ADDR(sector) (FLASH_BASE_S + (sector) * FLASH_PAGE_SIZE)
+#define FLASH_SECTOR_TO_ADDR(sector) (FLASH_BASE + (sector) * FLASH_PAGE_SIZE)
 
 // Define all flash areas as `const flash_area_t ID = { .. };`
 

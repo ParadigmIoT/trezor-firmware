@@ -53,7 +53,7 @@ const void *flash_get_address(uint16_t sector, uint32_t offset, uint32_t size) {
   }
 
   uint32_t base_addr =
-      flash_sector_is_secure(sector) ? FLASH_BASE_S : FLASH_BASE_NS;
+      flash_sector_is_secure(sector) ? FLASH_BASE : FLASH_BASE_NS;
 
   return (const void *)(base_addr + FLASH_PAGE_SIZE * sector + offset);
 }

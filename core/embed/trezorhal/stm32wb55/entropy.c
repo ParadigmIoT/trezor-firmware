@@ -25,7 +25,7 @@
 #include "mpu.h"
 #include "rand.h"
 
-#include "stm32wb55xx_ll_utils.h"
+#include "stm32wbxx_ll_utils.h"
 
 #ifdef KERNEL_MODE
 
