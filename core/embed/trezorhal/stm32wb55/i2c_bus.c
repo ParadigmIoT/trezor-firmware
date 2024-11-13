@@ -29,14 +29,8 @@
 
 #ifdef KERNEL_MODE
 
-// Using calculation from STM32CubeMX
-// PCLKx as source, assumed 160MHz
-// Fast mode, freq = 400kHz, Rise time = 250ns, Fall time = 100ns
-// Fast mode, freq = 200kHz, Rise time = 250ns, Fall time = 100ns
-// SCLH and SCLL are manually modified to achieve more symmetric clock
-#define I2C_TIMING_400000_Hz 0x30D22728
-#define I2C_TIMING_200000_Hz 0x30D2595A
-#define I2C_TIMING I2C_TIMING_200000_Hz
+// I2C bus SCL clock frequency
+#define I2C_BUS_SCL_FREQ 200000  // Hz
 
 // We expect the I2C bus to be running at ~200kHz
 // and max response time of the device is 1000us
@@ -143,6 +137,8 @@ struct i2c_bus {
   // == queue_head->op_count => no more operations
   int next_op;
 
+  // Current operation address byte
+  uint8_t addr_byte;
   // Points to the data buffer of the current operation
   uint8_t* buff_ptr;
   // Remaining number of bytes of the buffer to transfer
@@ -160,11 +156,6 @@ struct i2c_bus {
   bool stop_requested;
   // Set if pending transaction is being aborted
   bool abort_pending;
-  // Set if NACK was detected
-  bool nack;
-  // Data for clearing TXIS interrupt flag
-  // during an invalid or abort state
-  uint8_t dummy_data;
 
   // Flag indicating that the completion callback is being executed
   bool callback_executed;
@@ -222,6 +213,31 @@ static void i2c_bus_unlock(i2c_bus_t* bus) {
     HAL_GPIO_WritePin(def->scl_port, def->scl_pin, GPIO_PIN_SET);
     systick_delay_us(10);
   }
+}
+
+static void i2c_bus_reset(i2c_bus_t* bus) {
+  const i2c_bus_def_t* def = bus->def;
+
+  // Reset I2C peripheral
+  *def->reset_reg |= def->reset_bit;
+  *def->reset_reg &= ~def->reset_bit;
+
+  I2C_TypeDef* regs = def->regs;
+
+  // Configure I2C peripheral
+
+  uint32_t pclk_hz = HAL_RCC_GetPCLK1Freq();
+  uint32_t pclk_mhz = I2C_FREQRANGE(pclk_hz);
+  uint32_t i2c_speed_hz = I2C_BUS_SCL_FREQ;
+
+  regs->CR1 = 0;
+  regs->TRISE = I2C_RISE_TIME(pclk_mhz, i2c_speed_hz);
+  regs->CR2 = pclk_mhz;
+  regs->CCR = I2C_SPEED(pclk_hz, i2c_speed_hz, I2C_DUTYCYCLE_16_9);
+  regs->FLTR = 0;
+  regs->OAR1 = 0;
+  regs->OAR2 = 0;
+  regs->CR1 |= I2C_CR1_PE;
 }
 
 static void i2c_bus_deinit(i2c_bus_t* bus) {
@@ -302,23 +318,7 @@ static bool i2c_bus_init(i2c_bus_t* bus, int bus_index) {
   GPIO_InitStructure.Pin = def->sda_pin;
   HAL_GPIO_Init(def->sda_port, &GPIO_InitStructure);
 
-  // Reset I2C peripheral
-  *def->reset_reg |= def->reset_bit;
-  *def->reset_reg &= ~def->reset_bit;
-
-  I2C_TypeDef* regs = def->regs;
-
-  // Configure I2C peripheral
-  regs->CR1 = 0;
-  regs->TIMINGR = I2C_TIMING;
-  regs->CR2 = 0;
-  regs->OAR1 = 0;
-  regs->OAR2 = 0;
-  regs->CR1 |= I2C_CR1_PE;
-
-  // Configure I2C interrupts
-  regs->CR1 |= I2C_CR1_ERRIE | I2C_CR1_NACKIE | I2C_CR1_STOPIE | I2C_CR1_TCIE |
-               I2C_CR1_RXIE | I2C_CR1_TXIE;
+  i2c_bus_reset(bus);
 
   NVIC_SetPriority(def->ev_irq, IRQ_PRI_NORMAL);
   NVIC_SetPriority(def->er_irq, IRQ_PRI_NORMAL);
@@ -385,52 +385,6 @@ i2c_status_t i2c_packet_wait(const i2c_packet_t* packet) {
 
     // Enter sleep mode and wait for any interrupt
     __WFI();
-  }
-}
-
-static uint8_t i2c_bus_read_buff(i2c_bus_t* bus) {
-  if (bus->transfer_size > 0) {
-    while (bus->buff_size == 0 && bus->transfer_op < bus->next_op) {
-      i2c_op_t* op = &bus->queue_head->ops[bus->transfer_op++];
-      if (op->flags & I2C_FLAG_EMBED) {
-        bus->buff_ptr = op->data;
-        bus->buff_size = MIN(op->size, sizeof(op->data));
-      } else {
-        bus->buff_ptr = op->ptr;
-        bus->buff_size = op->size;
-      }
-    }
-
-    --bus->transfer_size;
-
-    if (bus->buff_size > 0) {
-      --bus->buff_size;
-      return *bus->buff_ptr++;
-    }
-  }
-
-  return 0;
-}
-
-static void i2c_bus_write_buff(i2c_bus_t* bus, uint8_t data) {
-  if (bus->transfer_size > 0) {
-    while (bus->buff_size == 0 && bus->transfer_op < bus->next_op) {
-      i2c_op_t* op = &bus->queue_head->ops[bus->transfer_op++];
-      if (op->flags & I2C_FLAG_EMBED) {
-        bus->buff_ptr = op->data;
-        bus->buff_size = MIN(op->size, sizeof(op->data));
-      } else {
-        bus->buff_ptr = op->ptr;
-        bus->buff_size = op->size;
-      }
-    }
-
-    --bus->transfer_size;
-
-    if (bus->buff_size > 0) {
-      *bus->buff_ptr++ = data;
-      --bus->buff_size;
-    }
   }
 }
 
@@ -532,26 +486,21 @@ void i2c_bus_abort(i2c_bus_t* bus, i2c_packet_t* packet) {
     if (i2c_bus_remove_packet(bus, packet) && bus->next_op > 0) {
       // The packet was being processed
 
-      if (bus->transfer_size > 0) {
-        bus->dummy_data = i2c_bus_read_buff(bus);
-      }
-
       // Reset internal state
       bus->next_op = 0;
       bus->buff_ptr = NULL;
       bus->buff_size = 0;
       bus->transfer_size = 0;
       bus->transfer_op = 0;
-      bus->stop_requested = false;
 
       // Inform interrupt handler about pending abort
       bus->abort_pending = true;
+      bus->stop_requested = true;
 
       // Abort operation may fail if the bus is busy or noisy
       // so we need to set a timeout.
       systimer_set(bus->timer, I2C_BUS_TIMEOUT(2));
     }
-
     packet->status = I2C_STATUS_ABORTED;
   }
 
@@ -575,7 +524,6 @@ static void i2c_bus_head_complete(i2c_bus_t* bus, i2c_status_t status) {
     bus->buff_size = 0;
     bus->transfer_size = 0;
     bus->transfer_op = 0;
-    bus->stop_requested = false;
     bus->abort_pending = false;
 
     systimer_unset(bus->timer);
@@ -591,26 +539,46 @@ static void i2c_bus_head_complete(i2c_bus_t* bus, i2c_status_t status) {
 // Must be called with IRQ disabled or from IRQ context
 // Expects no other operation is being processed
 static void i2c_bus_head_continue(i2c_bus_t* bus) {
+  I2C_TypeDef* regs = bus->def->regs;
+
+  if (bus->stop_requested) {
+    // Issue STOP condition
+    regs->CR1 |= I2C_CR1_STOP;
+    if (bus->def->guard_time > 0) {
+      bus->stop_time = systick_us();
+    }
+    bus->stop_requested = false;
+  }
+
   if (bus->abort_pending) {
     systimer_unset(bus->timer);
     bus->abort_pending = false;
   }
+
+  // Check if the bus is in a faulty state
+  if (bus->queue_head != NULL && bus->next_op == 0) {
+    uint32_t sr2 = regs->SR2;
+
+    if ((sr2 & I2C_SR2_BUSY) && ((sr2 & I2C_SR2_MSL) == 0)) {
+      // the bus is busy but not in master mode.
+      // It may happen if in case of noise or other issues.
+      i2c_bus_reset(bus);
+    }
+  }
+
+  uint32_t cr1 = regs->CR1;
+  cr1 &= ~(I2C_CR1_POS | I2C_CR1_ACK | I2C_CR1_STOP | I2C_CR1_START);
+
+  uint32_t cr2 = regs->CR2;
+  cr2 &= ~(I2C_CR2_ITBUFEN | I2C_CR2_ITEVTEN | I2C_CR2_ITERREN);
 
   if (bus->queue_head != NULL) {
     i2c_packet_t* packet = bus->queue_head;
 
     if (bus->next_op < packet->op_count) {
       i2c_op_t* op = &packet->ops[bus->next_op++];
-      I2C_TypeDef* regs = bus->def->regs;
 
-      uint32_t cr2 = regs->CR2;
-      cr2 &= ~(I2C_CR2_SADD | I2C_CR2_NBYTES | I2C_CR2_RELOAD |
-               I2C_CR2_AUTOEND | I2C_CR2_RD_WRN | I2C_CR2_SADD_Msk);
-
-      // Set device address
-      cr2 |= ((packet->address & 0x7F) << 1) << I2C_CR2_SADD_Pos;
-
-      // Get data ptr and its length
+      // Get data ptr and data length
       if (op->flags & I2C_FLAG_EMBED) {
         bus->buff_ptr = op->data;
         bus->buff_size = MIN(op->size, sizeof(op->data));
@@ -643,52 +611,63 @@ static void i2c_bus_head_continue(i2c_bus_t* bus) {
         }
       }
 
-      if (bus->transfer_size > 0) {
-        // I2C controller can handle only 255 bytes at once
-        // More data will be handled by the TCR interrupt
-        cr2 |= MIN(255, bus->transfer_size) << I2C_CR2_NBYTES_Pos;
-
-        if (bus->transfer_size > 255) {
-          cr2 |= I2C_CR2_RELOAD;
-        }
-
-        if (op->flags & I2C_FLAG_TX) {
-          // Transmitting has priority over receive.
-          // Flush TXDR register possibly filled by some previous
-          // invalid operation or abort.
-          regs->ISR = I2C_ISR_TXE;
-        } else if (op->flags & I2C_FLAG_RX) {
-          // Receive data from the device
-          cr2 |= I2C_CR2_RD_WRN;
-        }
-      }
-
       // STOP condition:
       //  1) if it is explicitly requested
       //  2) if it is the last operation in the packet
       bus->stop_requested = ((op->flags & I2C_FLAG_STOP) != 0) ||
                             (bus->next_op == packet->op_count);
 
-      bus->nack = false;
+      // Calculate address byte
+      bus->addr_byte = packet->address << 1;
 
-      // START condition
-      cr2 |= I2C_CR2_START;
-
-      // Guard time between operations STOP and START condition
-      if (bus->def->guard_time > 0) {
-        while (systick_us() - bus->stop_time < bus->def->guard_time)
-          ;
+      // ACK, POS, ITBUFEN flags are set based on the operation
+      if (bus->transfer_size > 0) {
+        if (op->flags & I2C_FLAG_TX) {
+          cr2 |= I2C_CR2_ITBUFEN;
+        } else if (op->flags & I2C_FLAG_RX) {
+          bus->addr_byte |= 1;  // Set RW bit to 1 (READ)
+          if (bus->transfer_size == 1) {
+            cr2 |= I2C_CR2_ITBUFEN;
+          } else if (bus->transfer_size == 2) {
+            cr1 |= I2C_CR1_POS;
+          } else if (bus->transfer_size == 3) {
+            cr1 |= I2C_CR1_ACK;
+          } else if (bus->transfer_size > 3) {
+            cr2 |= I2C_CR2_ITBUFEN;
+            cr1 |= I2C_CR1_ACK;
+          }
+        }
       }
 
-      regs->CR2 = cr2;
+      // Enable event and error interrupts
+      cr2 |= I2C_CR2_ITEVTEN | I2C_CR2_ITERREN;
+
+      // Generate start condition
+      // (this also clears all status flags)
+      cr1 |= I2C_CR1_START;
 
       // Each operation has its own timeout calculated
       // based on the number of bytes to transfer and the bus speed +
       // expected operation overhead
       systimer_set(bus->timer,
                    I2C_BUS_TIMEOUT(bus->transfer_size) + packet->timeout);
+
+      // Guard time between operations STOP and START condition
+      if (bus->def->guard_time > 0) {
+        // Add 5us as a safety margin since the stop_time was set before the
+        // STOP condition was issued
+        uint16_t guard_time = bus->def->guard_time + 5;
+        while (systick_us() - bus->stop_time < guard_time)
+          ;
+      }
     }
+
+    // Clear BTF flag
+    (void)regs->DR;
   }
+
+  regs->CR1 = cr1;
+  regs->CR2 = cr2;
 }
 
 // Timer callback handling I2C bus timeout
@@ -696,15 +675,10 @@ static void i2c_bus_timer_callback(void* context) {
   i2c_bus_t* bus = (i2c_bus_t*)context;
 
   if (bus->abort_pending) {
-    // Packet abort was not completed in time (STOPF was not detected)
     // This may be caused by the bus being busy/noisy.
-    I2C_TypeDef* regs = bus->def->regs;
-
-    // Reset the I2C controller
-    regs->CR1 &= ~I2C_CR1_PE;
-    regs->CR1 |= I2C_CR1_PE;
-
-    // Continue with the next packet
+    // Reset I2C Controller
+    i2c_bus_reset(bus);
+    // Start the next packet
     i2c_bus_head_continue(bus);
   } else {
     // Timeout during normal operation occurred
@@ -713,7 +687,8 @@ static void i2c_bus_timer_callback(void* context) {
       // Determine the status based on the current bus state
       I2C_TypeDef* regs = bus->def->regs;
       i2c_status_t status;
-      if ((regs->CR2 & I2C_CR2_START) && (regs->ISR & I2C_ISR_BUSY)) {
+
+      if ((regs->CR1 & I2C_CR1_START) && (regs->SR2 & I2C_SR2_BUSY)) {
         // START condition was issued but the bus is still busy
         status = I2C_STATUS_BUSY;
       } else {
@@ -722,9 +697,54 @@ static void i2c_bus_timer_callback(void* context) {
 
       // Abort pending packet
       i2c_bus_abort(bus, packet);
-
       // Invoke the completion callback
       i2c_bus_invoke_callback(bus, packet, status);
+    }
+  }
+}
+
+static uint8_t i2c_bus_read_buff(i2c_bus_t* bus) {
+  if (bus->transfer_size > 0) {
+    while (bus->buff_size == 0 && bus->transfer_op < bus->next_op) {
+      i2c_op_t* op = &bus->queue_head->ops[bus->transfer_op++];
+      if (op->flags & I2C_FLAG_EMBED) {
+        bus->buff_ptr = op->data;
+        bus->buff_size = MIN(op->size, sizeof(op->data));
+      } else {
+        bus->buff_ptr = op->ptr;
+        bus->buff_size = op->size;
+      }
+    }
+
+    --bus->transfer_size;
+
+    if (bus->buff_size > 0) {
+      --bus->buff_size;
+      return *bus->buff_ptr++;
+    }
+  }
+
+  return 0;
+}
+
+static void i2c_bus_write_buff(i2c_bus_t* bus, uint8_t data) {
+  if (bus->transfer_size > 0) {
+    while (bus->buff_size == 0 && bus->transfer_op < bus->next_op) {
+      i2c_op_t* op = &bus->queue_head->ops[bus->transfer_op++];
+      if (op->flags & I2C_FLAG_EMBED) {
+        bus->buff_ptr = op->data;
+        bus->buff_size = MIN(op->size, sizeof(op->data));
+      } else {
+        bus->buff_ptr = op->ptr;
+        bus->buff_size = op->size;
+      }
+    }
+
+    --bus->transfer_size;
+
+    if (bus->buff_size > 0) {
+      *bus->buff_ptr++ = data;
+      --bus->buff_size;
     }
   }
 }
@@ -733,103 +753,109 @@ static void i2c_bus_timer_callback(void* context) {
 static void i2c_bus_ev_handler(i2c_bus_t* bus) {
   I2C_TypeDef* regs = bus->def->regs;
 
-  uint32_t isr = regs->ISR;
+  uint32_t sr1 = regs->SR1;
 
-  if (isr & I2C_ISR_RXNE) {
-    // I2C controller receive buffer is not empty.
-    // The interrupt flag is cleared by reading the RXDR register.
-    uint8_t received_byte = regs->RXDR;
-    if (bus->next_op > 0 && bus->transfer_size > 0) {
-      i2c_bus_write_buff(bus, received_byte);
-    } else if (bus->abort_pending) {
-      regs->CR2 |= I2C_CR2_STOP;
-    } else {
-      // Invalid state, ignore
-    }
-  }
+  if (sr1 & I2C_SR1_SB) {
+    // START condition generated
+    // Send the address byte
+    regs->DR = bus->addr_byte;
+    // Operation cannot be aborted at this point.
+    // We need to wait for ADDR flag.
+  } else if (sr1 & I2C_SR1_ADDR) {
+    // Address sent and ACKed by the slave
+    // By reading SR2 we clear ADDR flag and start the data transfer
+    regs->SR2;
 
-  if (isr & I2C_ISR_TXIS) {
-    // I2C controller transmit buffer is empty.
-    // The interrupt flag is cleared by writing the TXDR register.
-    if (bus->next_op > 0 && bus->transfer_size > 0) {
-      regs->TXDR = i2c_bus_read_buff(bus);
-    } else {
-      regs->TXDR = bus->dummy_data;
-      if (bus->abort_pending) {
-        regs->CR2 |= I2C_CR2_STOP;
-      } else {
-        // Invalid state, ignore
-      }
-    }
-  }
-
-  if (isr & I2C_ISR_TCR) {
-    // Data transfer is partially completed and RELOAD is required
     if (bus->abort_pending) {
-      // Packet is being aborted, issue STOP condition
-      regs->CR2 &= ~(I2C_CR2_NBYTES | I2C_CR2_RELOAD);
-      regs->CR2 |= I2C_CR2_STOP;
-    } else if (bus->transfer_size > 0) {
-      // There are still some bytes left in the current operation buffer
-      uint32_t cr2 = regs->CR2 & ~(I2C_CR2_NBYTES | I2C_CR2_RELOAD);
-
-      cr2 |= MIN(bus->transfer_size, 255) << I2C_CR2_NBYTES_Pos;
-
-      if (bus->transfer_size > 255) {
-        // Set RELOAD if we the remaining data is still over
-        // the 255 bytes limit
-        cr2 |= I2C_CR2_RELOAD;
+      // Only TX operation can be aborted at this point
+      // For RX operation, we need to wait for the first byte
+      if ((bus->addr_byte & 1) == 0) {
+        // Issue STOP condition and start the next packet
+        i2c_bus_head_continue(bus);
       }
-      regs->CR2 = cr2;
-    } else if (bus->queue_head != NULL) {
-      // Data transfer is split between two or more operations,
-      // continues in the next operation
+    } else if (bus->transfer_size == 0) {
+      // Operation contains only address without any data
+      if (bus->next_op == bus->queue_head->op_count) {
+        i2c_bus_head_complete(bus, I2C_STATUS_OK);
+      }
       i2c_bus_head_continue(bus);
-    } else {
-      // Invalid state, clear the TCR flag
-      regs->CR2 &= ~(I2C_CR2_NBYTES | I2C_CR2_RELOAD);
-      regs->CR2 |= I2C_CR2_STOP;
     }
-  }
-
-  if (isr & I2C_ISR_TC) {
-    // Transfer complete
-    if (bus->stop_requested || bus->abort_pending) {
-      // Issue stop condition and wait for ISR_STOPF flag
-      regs->CR2 |= I2C_CR2_STOP;
-    } else if (bus->queue_head != NULL) {
-      // Continue with the next operation
+  } else if ((bus->addr_byte & 1) == 0) {
+    // Data transmit phase
+    if (bus->abort_pending) {
+      // Issue STOP condition and start the next packet
       i2c_bus_head_continue(bus);
-    } else {
-      // Invalid state, clear the TC flag
-      regs->CR2 |= I2C_CR2_STOP;
+    } else if ((sr1 & I2C_SR1_TXE) && (regs->CR2 & I2C_CR2_ITBUFEN)) {
+      // I2C controller transmit buffer is empty.
+      // The interrupt flag is cleared by writing the DR register.
+      if (bus->transfer_size > 0) {
+        // Send the next byte
+        regs->DR = i2c_bus_read_buff(bus);
+        if (bus->transfer_size == 0) {
+          // All data bytes were transmitted
+          // Disable RXNE interrupt and wait for BTF
+          regs->CR2 &= ~I2C_CR2_ITBUFEN;
+        }
+      }
+    } else if (sr1 & I2C_SR1_BTF) {
+      if (bus->transfer_size == 0) {
+        // All data bytes were shifted out
+        if (bus->next_op == bus->queue_head->op_count) {
+          // Last operation in the packet
+          i2c_bus_head_complete(bus, I2C_STATUS_OK);
+        }
+        i2c_bus_head_continue(bus);
+      }
     }
-  }
+  } else {  // Data receive phase
+    if (bus->abort_pending) {
+      regs->CR1 &= ~(I2C_CR1_ACK | I2C_CR1_POS);
+      (void)regs->DR;
+      // Issue STOP condition and start the next packet
+      i2c_bus_head_continue(bus);
+    } else if ((sr1 & I2C_SR1_RXNE) && (regs->CR2 & I2C_CR2_ITBUFEN)) {
+      uint8_t received_byte = regs->DR;
+      if (bus->transfer_size > 0) {
+        // Receive the next byte
+        i2c_bus_write_buff(bus, received_byte);
+        if (bus->transfer_size == 3) {
+          // 3 bytes left to receive
+          // Disable RXNE interrupt and wait for BTF
+          regs->CR2 &= ~I2C_CR2_ITBUFEN;
+        } else if (bus->transfer_size == 0) {
+          // All data bytes were received
+          // We get here only in case of 1 byte transfers
+          if (bus->next_op == bus->queue_head->op_count) {
+            // Last operation in the packet
+            i2c_bus_head_complete(bus, I2C_STATUS_OK);
+          }
+          i2c_bus_head_continue(bus);
+        }
+      }
+    } else if (sr1 & I2C_SR1_BTF) {
+      if (bus->transfer_size == 3) {
+        // 3 bytes left to receive
+        regs->CR1 &= ~I2C_CR1_ACK;
+        i2c_bus_write_buff(bus, regs->DR);
+      } else if (bus->transfer_size == 2) {
+        // 2 left bytes are already in DR a shift register
+        if (bus->stop_requested) {
+          // Issue STOP condition before reading the 2 last bytes
+          regs->CR1 |= I2C_CR1_STOP;
+          if (bus->def->guard_time > 0) {
+            bus->stop_time = systick_us();
+          }
+          bus->stop_requested = false;
+        }
+        i2c_bus_write_buff(bus, regs->DR);
+        i2c_bus_write_buff(bus, regs->DR);
 
-  if (isr & I2C_ISR_NACKF) {
-    // Clear the NACKF flag
-    regs->ICR = I2C_ICR_NACKCF;
-    bus->nack = true;
-    // STOP condition is automatically generated
-    // by the hardware and the STOPF is set later.
-  }
-
-  if (isr & I2C_ISR_STOPF) {
-    // Clear the STOPF flag
-    regs->ICR = I2C_ICR_STOPCF;
-
-    if (bus->def->guard_time > 0) {
-      bus->stop_time = systick_us();
+        if (bus->next_op == bus->queue_head->op_count) {
+          i2c_bus_head_complete(bus, I2C_STATUS_OK);
+        }
+        i2c_bus_head_continue(bus);
+      }
     }
-
-    if (bus->next_op > 0 && bus->next_op == bus->queue_head->op_count) {
-      // Last operation in the packet
-      i2c_bus_head_complete(bus, bus->nack ? I2C_STATUS_NACK : I2C_STATUS_OK);
-    }
-
-    // Continue with the next operation
-    // or complete the pending packet and move to the next
-    i2c_bus_head_continue(bus);
   }
 }
 
@@ -837,29 +863,45 @@ static void i2c_bus_ev_handler(i2c_bus_t* bus) {
 static void i2c_bus_er_handler(i2c_bus_t* bus) {
   I2C_TypeDef* regs = bus->def->regs;
 
-  uint32_t isr = regs->ISR;
+  uint32_t sr1 = regs->SR1;
 
   // Clear error flags
-  regs->ICR = I2C_ICR_BERRCF | I2C_ICR_ARLOCF | I2C_ICR_OVRCF;
+  regs->SR1 &= ~(I2C_SR1_AF | I2C_SR1_ARLO | I2C_SR1_BERR);
 
-  if (isr & I2C_ISR_BERR) {
-    // Bus error
-    // Ignore and continue with pending operation
-  }
-
-  if (isr & I2C_ISR_ARLO) {
-    if (bus->next_op > 0) {
-      // Arbitration lost, complete packet with error
-      i2c_bus_head_complete(bus, I2C_STATUS_ERROR);
+  if (sr1 & I2C_SR1_AF) {
+    // NACK received
+    if (bus->abort_pending) {
       // Start the next packet
       i2c_bus_head_continue(bus);
+    } else if (bus->next_op > 0) {
+      // Complete packet with error
+      i2c_bus_head_complete(bus, I2C_STATUS_NACK);
+      // Issue stop condition and start the next packet
+      bus->stop_requested = true;
+      i2c_bus_head_continue(bus);
     } else {
-      // Packet aborted or invalid state
+      // Invalid state
     }
   }
 
-  if (isr & I2C_ISR_OVR) {
-    // This should not happen in master mode
+  if (sr1 & I2C_SR1_ARLO) {
+    if (bus->abort_pending) {
+      // Packet aborted or invalid state
+      // Start the next packet
+      bus->stop_requested = false;
+      i2c_bus_head_continue(bus);
+    } else if (bus->next_op > 0) {
+      // Arbitration lost, complete packet with error
+      i2c_bus_head_complete(bus, I2C_STATUS_ERROR);
+      // Start the next packet
+      bus->stop_requested = false;
+      i2c_bus_head_continue(bus);
+    }
+  }
+
+  if (sr1 & I2C_SR1_BERR) {
+    // Bus error
+    // Ignore and continue with pending operation
   }
 }
 

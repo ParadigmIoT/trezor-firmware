@@ -19,8 +19,6 @@ memset_reg:
   .L_loop_end:
   bx lr
 
-  // Jump to address given in first argument R0 that points to next's stage's VTOR
-  // Clear memory and all registers before jump
   .global jump_to
   .type jump_to, STT_FUNC
 jump_to:
@@ -34,6 +32,7 @@ jump_to:
   // "there is no requirement to insert memory barrier instructions after CPSID".
   cpsid f
   // wipe memory at the end of the current stage of code
+  bl clear_otg_hs_memory
   ldr r2, =0             // r2 - the word-sized value to be written
   ldr r0, =_handoff_clear_ram_0_start
   ldr r1, =_handoff_clear_ram_0_end
@@ -41,12 +40,8 @@ jump_to:
   ldr r0, =_handoff_clear_ram_1_start
   ldr r1, =_handoff_clear_ram_1_end
   bl memset_reg
-  ldr r0, =_handoff_clear_ram_2_start
-  ldr r1, =_handoff_clear_ram_2_end
-  bl memset_reg
-
   mov lr, r4
-  // clear out the general purpose registers before the next stage's code can run
+  // clear out the general purpose registers before the next stage's code can run (even the NMI exception handler)
   ldr r0, =0
   mov r1, r0
   mov r2, r0
@@ -101,13 +96,7 @@ shutdown_privileged:
   ldr r0, =_shutdown_clear_ram_1_start
   ldr r1, =_shutdown_clear_ram_1_end
   bl memset_reg
-  ldr r0, =_shutdown_clear_ram_2_start
-  ldr r1, =_shutdown_clear_ram_2_end
-  bl memset_reg
-  ldr r0, =_shutdown_clear_ram_3_start
-  ldr r1, =_shutdown_clear_ram_3_end
-  bl memset_reg
-
+  bl clear_otg_hs_memory
   ldr r0, =1
   msr control, r0 // jump to unprivileged mode
   ldr r0, =0

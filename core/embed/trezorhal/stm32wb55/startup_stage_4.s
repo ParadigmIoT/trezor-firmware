@@ -19,15 +19,9 @@ reset_handler:
   bl memset
 
   // copy data in from flash
-  ldr r0, =data_vma
-  ldr r1, =data_lma
-  ldr r2, =data_size
-  bl memcpy
-
-  // copy confidential data in from flash
-  ldr r0, =confidential_vma
-  ldr r1, =confidential_lma
-  ldr r2, =confidential_size
+  ldr r0, =data_vma     // dst addr
+  ldr r1, =data_lma     // src addr
+  ldr r2, =data_size    // size in bytes
   bl memcpy
 
   pop {r0, r1}

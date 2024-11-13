@@ -18,47 +18,54 @@
  */
 
 #include <trezor_bsp.h>
+#include <trezor_rtl.h>
 
+#include "mpu.h"
 #include "rng.h"
 
 #ifdef KERNEL_MODE
 
-#define SAMPLES 119
-#define TIMER_PERIOD 16000  // cca 10 KHz @ 160MHz
+#define SAMPLES 110
+#define TIMER_PERIOD 16640  // cca 10 KHz @ 180MHz
 
-uint32_t pwm_data[SAMPLES] = {0};
+#if defined BOARDLOADER
+#error Not implemented for boardloader!
+#endif
 
-static DMA_NodeTypeDef Node1;
-static DMA_QListTypeDef Queue;
+__attribute__((section(".buf"))) uint32_t pwm_data[SAMPLES] = {0};
 
 void consumption_mask_randomize() {
+  mpu_mode_t mpu_mode = mpu_reconfig(MPU_MODE_KERNEL_SRAM);
+
   for (int i = 0; i < SAMPLES; i++) {
     pwm_data[i] = rng_get() % TIMER_PERIOD;
   }
+
+  mpu_restore(mpu_mode);
 }
 
 void consumption_mask_init(void) {
   consumption_mask_randomize();
 
-  __HAL_RCC_GPIOA_CLK_ENABLE();
+  __HAL_RCC_GPIOC_CLK_ENABLE();
   GPIO_InitTypeDef GPIO_InitStructure = {0};
   GPIO_InitStructure.Mode = GPIO_MODE_AF_PP;
   GPIO_InitStructure.Pull = GPIO_PULLUP;
-  GPIO_InitStructure.Speed = GPIO_SPEED_FREQ_LOW;
-  GPIO_InitStructure.Alternate = GPIO_AF1_TIM2;
-  GPIO_InitStructure.Pin = GPIO_PIN_5;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStructure);
+  GPIO_InitStructure.Speed = GPIO_SPEED_FREQ_HIGH;
+  GPIO_InitStructure.Alternate = GPIO_AF3_TIM8;
+  GPIO_InitStructure.Pin = GPIO_PIN_6;
+  HAL_GPIO_Init(GPIOC, &GPIO_InitStructure);
 
-  __HAL_RCC_TIM2_CLK_ENABLE();
-  TIM_HandleTypeDef TIM2_Handle = {0};
-  TIM2_Handle.State = HAL_TIM_STATE_RESET;
-  TIM2_Handle.Instance = TIM2;
-  TIM2_Handle.Init.Period = TIMER_PERIOD;
-  TIM2_Handle.Init.Prescaler = 0;
-  TIM2_Handle.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  TIM2_Handle.Init.CounterMode = TIM_COUNTERMODE_UP;
-  TIM2_Handle.Init.RepetitionCounter = 0;
-  HAL_TIM_PWM_Init(&TIM2_Handle);
+  __HAL_RCC_TIM8_CLK_ENABLE();
+  TIM_HandleTypeDef TIM8_Handle = {0};
+  TIM8_Handle.State = HAL_TIM_STATE_RESET;
+  TIM8_Handle.Instance = TIM8;
+  TIM8_Handle.Init.Period = TIMER_PERIOD;
+  TIM8_Handle.Init.Prescaler = 0;
+  TIM8_Handle.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  TIM8_Handle.Init.CounterMode = TIM_COUNTERMODE_UP;
+  TIM8_Handle.Init.RepetitionCounter = 0;
+  HAL_TIM_PWM_Init(&TIM8_Handle);
 
   TIM_OC_InitTypeDef TIM_OC_InitStructure = {0};
   TIM_OC_InitStructure.Pulse = 0;
@@ -68,78 +75,42 @@ void consumption_mask_init(void) {
   TIM_OC_InitStructure.OCNPolarity = TIM_OCNPOLARITY_HIGH;
   TIM_OC_InitStructure.OCIdleState = TIM_OCIDLESTATE_SET;
   TIM_OC_InitStructure.OCNIdleState = TIM_OCNIDLESTATE_SET;
-  HAL_TIM_PWM_ConfigChannel(&TIM2_Handle, &TIM_OC_InitStructure, TIM_CHANNEL_1);
+  HAL_TIM_PWM_ConfigChannel(&TIM8_Handle, &TIM_OC_InitStructure, TIM_CHANNEL_1);
 
-  __HAL_RCC_GPDMA1_CLK_ENABLE();
-  DMA_HandleTypeDef dma_handle = {0};
+  __HAL_RCC_DMA2_CLK_ENABLE();
+  DMA_HandleTypeDef DMA_InitStructure = {0};
+  DMA_InitStructure.Instance = DMA2_Stream1;
+  DMA_InitStructure.State = HAL_DMA_STATE_RESET;
+  DMA_InitStructure.Init.Channel = DMA_CHANNEL_7;
+  DMA_InitStructure.Init.Direction = DMA_MEMORY_TO_PERIPH;
+  DMA_InitStructure.Init.FIFOMode = DMA_FIFOMODE_DISABLE;
+  DMA_InitStructure.Init.FIFOThreshold = DMA_FIFO_THRESHOLD_1QUARTERFULL;
+  DMA_InitStructure.Init.MemBurst = DMA_MBURST_SINGLE;
+  DMA_InitStructure.Init.MemDataAlignment = DMA_MDATAALIGN_WORD;
+  DMA_InitStructure.Init.MemInc = DMA_MINC_ENABLE;
+  DMA_InitStructure.Init.Mode = DMA_CIRCULAR;
+  DMA_InitStructure.Init.PeriphBurst = DMA_PBURST_SINGLE;
+  DMA_InitStructure.Init.PeriphDataAlignment = DMA_PDATAALIGN_WORD;
+  DMA_InitStructure.Init.PeriphInc = DMA_PINC_DISABLE;
+  DMA_InitStructure.Init.Priority = DMA_PRIORITY_HIGH;
+  HAL_DMA_Init(&DMA_InitStructure);
 
-  /* USER CODE END GPDMA1_Init 1 */
-  dma_handle.Instance = GPDMA1_Channel1;
-  dma_handle.InitLinkedList.Priority = DMA_HIGH_PRIORITY;
-  dma_handle.InitLinkedList.LinkStepMode = DMA_LSM_FULL_EXECUTION;
-  dma_handle.InitLinkedList.LinkAllocatedPort = DMA_LINK_ALLOCATED_PORT1;
-  dma_handle.InitLinkedList.TransferEventMode = DMA_TCEM_LAST_LL_ITEM_TRANSFER;
-  dma_handle.InitLinkedList.LinkedListMode = DMA_LINKEDLIST_CIRCULAR;
-  HAL_DMAEx_List_Init(&dma_handle);
-
-  HAL_DMA_ConfigChannelAttributes(
-      &dma_handle, DMA_CHANNEL_PRIV | DMA_CHANNEL_SEC | DMA_CHANNEL_SRC_SEC |
-                       DMA_CHANNEL_DEST_SEC);
-
-  /* DMA node configuration declaration */
-  DMA_NodeConfTypeDef pNodeConfig = {0};
-
-  /* Set node configuration ################################################*/
-  pNodeConfig.NodeType = DMA_GPDMA_LINEAR_NODE;
-  pNodeConfig.Init.Request = GPDMA1_REQUEST_TIM2_UP;
-  pNodeConfig.Init.BlkHWRequest = DMA_BREQ_SINGLE_BURST;
-  pNodeConfig.Init.Direction = DMA_MEMORY_TO_PERIPH;
-  pNodeConfig.Init.SrcInc = DMA_SINC_INCREMENTED;
-  pNodeConfig.Init.DestInc = DMA_DINC_FIXED;
-  pNodeConfig.Init.SrcDataWidth = DMA_SRC_DATAWIDTH_WORD;
-  pNodeConfig.Init.DestDataWidth = DMA_DEST_DATAWIDTH_WORD;
-  pNodeConfig.Init.SrcBurstLength = 1;
-  pNodeConfig.Init.DestBurstLength = 1;
-  pNodeConfig.Init.TransferAllocatedPort =
-      DMA_SRC_ALLOCATED_PORT0 | DMA_DEST_ALLOCATED_PORT0;
-  pNodeConfig.Init.TransferEventMode = DMA_TCEM_BLOCK_TRANSFER;
-  pNodeConfig.RepeatBlockConfig.RepeatCount = 1;
-  pNodeConfig.RepeatBlockConfig.SrcAddrOffset = 0;
-  pNodeConfig.RepeatBlockConfig.DestAddrOffset = 0;
-  pNodeConfig.RepeatBlockConfig.BlkSrcAddrOffset = 0;
-  pNodeConfig.RepeatBlockConfig.BlkDestAddrOffset = 0;
-  pNodeConfig.TriggerConfig.TriggerPolarity = DMA_TRIG_POLARITY_MASKED;
-  pNodeConfig.DataHandlingConfig.DataExchange = DMA_EXCHANGE_NONE;
-  pNodeConfig.DataHandlingConfig.DataAlignment = DMA_DATA_RIGHTALIGN_ZEROPADDED;
-  pNodeConfig.SrcAddress = (uint32_t)pwm_data;
-  pNodeConfig.DstAddress = (uint32_t)&TIM2->CCR1;
-  pNodeConfig.DataSize = SAMPLES * sizeof(uint32_t);
-  pNodeConfig.DestSecure = DMA_CHANNEL_DEST_SEC;
-  pNodeConfig.SrcSecure = DMA_CHANNEL_SRC_SEC;
-
-  /* Build Node1 Node */
-  HAL_DMAEx_List_BuildNode(&pNodeConfig, &Node1);
-
-  /* Insert Node1 to Queue */
-  HAL_DMAEx_List_InsertNode_Tail(&Queue, &Node1);
-
-  HAL_DMAEx_List_SetCircularModeConfig(&Queue, &Node1);
-  HAL_DMAEx_List_SetCircularMode(&Queue);
-
-  /* Link created queue to DMA channel #######################################*/
-  HAL_DMAEx_List_LinkQ(&dma_handle, &Queue);
-
-  TIM2->CR2 |= TIM_CR2_CCPC;     // preloading CCR register
-  TIM2->CR2 |= TIM_CR2_CCUS;     // preload when TRGI
-  TIM2->DIER |= TIM_DMA_UPDATE;  // allow DMA request from update event
-  TIM2->CCR1 = 0;
+  TIM4->CR2 |= TIM_CR2_MMS_1;    // update event as TRGO
+  TIM8->CR2 |= TIM_CR2_CCPC;     // preloading CCR register
+  TIM8->CR2 |= TIM_CR2_CCUS;     // preload when TRGI
+  TIM8->DIER |= TIM_DMA_UPDATE;  // allow DMA request from update event
+  TIM8->CCR1 = 0;
 
   HAL_Delay(1);
 
-  HAL_TIM_Base_Start(&TIM2_Handle);
-  HAL_TIM_PWM_Start(&TIM2_Handle, TIM_CHANNEL_1);
+  DMA2->LIFCR |= 0xFC0;
+  DMA2_Stream1->M0AR = (uint32_t)pwm_data;
+  DMA2_Stream1->PAR = (uint32_t)&TIM8->CCR1;
+  DMA2_Stream1->NDTR = SAMPLES;
+  DMA2_Stream1->CR |= DMA_SxCR_EN;
 
-  HAL_DMAEx_List_Start(&dma_handle);
+  HAL_TIM_Base_Start(&TIM8_Handle);
+  HAL_TIM_PWM_Start(&TIM8_Handle, TIM_CHANNEL_1);
 }
 
 #endif  // KERNEL_MODE

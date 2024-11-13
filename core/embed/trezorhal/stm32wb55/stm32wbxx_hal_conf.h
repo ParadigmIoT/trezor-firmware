@@ -19,8 +19,8 @@
 /* USER CODE END Header */
 
 /* Define to prevent recursive inclusion -------------------------------------*/
-#ifndef STM32WBxx_HAL_CONF_H
-#define STM32WBxx_HAL_CONF_H
+#ifndef STM32wbxx_HAL_CONF_H
+#define STM32wbxx_HAL_CONF_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -29,7 +29,7 @@ extern "C" {
 /* Exported types ------------------------------------------------------------*/
 /* Exported constants --------------------------------------------------------*/
 
-#ifdef STM32U585xx
+#ifdef STM32WB55xx
 #define USE_USB_FS
 #else
 #define USE_USB_HS
@@ -329,13 +329,29 @@ extern "C" {
 #include "stm32wbxx_hal_gpio.h"
 #endif /* HAL_GPIO_MODULE_ENABLED */
 
+// #ifdef HAL_ICACHE_MODULE_ENABLED
+// #include "stm32wbxx_hal_icache.h"
+// #endif /* HAL_ICACHE_MODULE_ENABLED */
+
 #ifdef HAL_DCACHE_MODULE_ENABLED
 #include "stm32wbxx_hal_dcache.h"
 #endif /* HAL_DCACHE_MODULE_ENABLED */
 
+// #ifdef HAL_GTZC_MODULE_ENABLED
+// #include "stm32wbxx_hal_gtzc.h"
+// #endif /* HAL_GTZC_MODULE_ENABLED */
+
 #ifdef HAL_DMA_MODULE_ENABLED
 #include "stm32wbxx_hal_dma.h"
 #endif /* HAL_DMA_MODULE_ENABLED */
+
+// #ifdef HAL_DMA2D_MODULE_ENABLED
+// #include "stm32wbxx_hal_dma2d.h"
+// #endif /* HAL_DMA2D_MODULE_ENABLED */
+
+// #ifdef HAL_DSI_MODULE_ENABLED
+// #include "stm32wbxx_hal_dsi.h"
+// #endif /* HAL_DSI_MODULE_ENABLED */
 
 #ifdef HAL_CORTEX_MODULE_ENABLED
 #include "stm32wbxx_hal_cortex.h"
@@ -369,6 +385,14 @@ extern "C" {
 #include "stm32wbxx_hal_flash.h"
 #endif /* HAL_FLASH_MODULE_ENABLED */
 
+// #ifdef HAL_HASH_MODULE_ENABLED
+// #include "stm32wbxx_hal_hash.h"
+// #endif /* HAL_HASH_MODULE_ENABLED */
+
+// #ifdef HAL_SRAM_MODULE_ENABLED
+// #include "stm32wbxx_hal_sram.h"
+// #endif /* HAL_SRAM_MODULE_ENABLED */
+
 #ifdef HAL_MMC_MODULE_ENABLED
 #include "stm32wbxx_hal_mmc.h"
 #endif /* HAL_MMC_MODULE_ENABLED */
@@ -393,6 +417,10 @@ extern "C" {
 #include "stm32wbxx_hal_lptim.h"
 #endif /* HAL_LPTIM_MODULE_ENABLED */
 
+// #ifdef HAL_LTDC_MODULE_ENABLED
+// #include "stm32wbxx_hal_ltdc.h"
+// #endif /* HAL_LTDC_MODULE_ENABLED */
+
 #ifdef HAL_OPAMP_MODULE_ENABLED
 #include "stm32wbxx_hal_opamp.h"
 #endif /* HAL_OPAMP_MODULE_ENABLED */
@@ -416,6 +444,10 @@ extern "C" {
 #ifdef HAL_SAI_MODULE_ENABLED
 #include "stm32wbxx_hal_sai.h"
 #endif /* HAL_SAI_MODULE_ENABLED */
+
+// #ifdef HAL_SD_MODULE_ENABLED
+// #include "stm32wbxx_hal_sd.h"
+// #endif /* HAL_SD_MODULE_ENABLED */
 
 #ifdef HAL_SMBUS_MODULE_ENABLED
 #include "stm32wbxx_hal_smbus.h"
@@ -481,6 +513,10 @@ extern "C" {
 #include "stm32wbxx_hal_fmac.h"
 #endif /* HAL_FMAC_MODULE_ENABLED */
 
+// #ifdef HAL_GFXMMU_MODULE_ENABLED
+// #include "stm32wbxx_hal_gfxmmu.h"
+// #endif /* HAL_GFXMMU_MODULE_ENABLED */
+
 #ifdef HAL_GPU2D_MODULE_ENABLED
 #include "stm32wbxx_hal_gpu2d.h"
 #endif /* HAL_GPU2D_MODULE_ENABLED */
@@ -528,4 +564,4 @@ void assert_failed(uint8_t *file, uint32_t line);
 }
 #endif
 
-#endif /* STM32WBxx_HAL_CONF_H */
+#endif /* STM32wbxx_HAL_CONF_H */

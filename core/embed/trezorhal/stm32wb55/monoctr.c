@@ -18,33 +18,42 @@
  */
 
 #include <trezor_model.h>
+#include <trezor_rtl.h>
 
-#include "flash_area.h"
+#include "flash_otp.h"
 #include "monoctr.h"
 #include "mpu.h"
-#include "secret.h"
 
 #ifdef KERNEL_MODE
 
-static int32_t get_offset(monoctr_type_t type) {
+#if !PRODUCTION
+// we don't want to override OTP on development boards
+// lets mock this functionality
+static uint8_t dummy_version = 0;
+#endif
+
+#if PRODUCTION
+static int get_otp_block(monoctr_type_t type) {
   switch (type) {
     case MONOCTR_BOOTLOADER_VERSION:
-      return SECRET_MONOTONIC_COUNTER_OFFSET;
+      return FLASH_OTP_BLOCK_BOOTLOADER_VERSION;
     case MONOCTR_FIRMWARE_VERSION:
-      return SECRET_MONOTONIC_COUNTER2_OFFSET;
+      return FLASH_OTP_BLOCK_FIRMWARE_VERSION;
     default:
       return -1;
   }
 }
+#endif
 
 secbool monoctr_write(monoctr_type_t type, uint8_t value) {
+#if PRODUCTION
   if (value > MONOCTR_MAX_VALUE) {
     return secfalse;
   }
 
-  int32_t offset = get_offset(type);
+  int block = get_otp_block(type);
 
-  if (offset < 0) {
+  if (block < 0) {
     return secfalse;
   }
 
@@ -62,73 +71,74 @@ secbool monoctr_write(monoctr_type_t type, uint8_t value) {
     return sectrue;
   }
 
-  for (int i = 0; i < value; i++) {
-    uint32_t data[4] = {0};
-    secret_write((uint8_t *)data, offset + i * 16, 16);
+  uint8_t bits[FLASH_OTP_BLOCK_SIZE];
+  for (int i = 0; i < FLASH_OTP_BLOCK_SIZE * 8; i++) {
+    if (i < value) {
+      bits[i / 8] &= ~(1 << (7 - (i % 8)));
+    } else {
+      bits[i / 8] |= (1 << (7 - (i % 8)));
+    }
   }
 
+  ensure(flash_otp_write(block, 0, bits, FLASH_OTP_BLOCK_SIZE), NULL);
+#else
+  if (value >= dummy_version) {
+    dummy_version = value;
+  }
+#endif
   return sectrue;
 }
 
-secbool monoctr_read(monoctr_type_t type, uint8_t *value) {
-  int32_t offset = get_offset(type);
+secbool monoctr_read(monoctr_type_t type, uint8_t* value) {
+#if PRODUCTION
+  uint8_t bits[FLASH_OTP_BLOCK_SIZE];
 
-  if (offset < 0) {
+  int block = get_otp_block(type);
+
+  if (block < 0) {
     return secfalse;
   }
 
-  const uint8_t *counter_addr = flash_area_get_address(
-      &SECRET_AREA, offset, SECRET_MONOTONIC_COUNTER_LEN);
+  ensure(flash_otp_read(block, 0, bits, FLASH_OTP_BLOCK_SIZE), NULL);
 
-  if (counter_addr == NULL) {
-    return secfalse;
-  }
+  int result = 0;
 
-  mpu_mode_t mpu_mode = mpu_reconfig(MPU_MODE_SECRET);
+  int i;
 
-  int counter = 0;
+  // Iterate through each bit position in the bit field
+  for (i = 0; i < FLASH_OTP_BLOCK_SIZE * 8; i++) {
+    // Calculate the byte and bit index within the byte
+    int byteIndex = i / 8;
+    int bitIndex = 7 - (i % 8);
 
-  int i = 0;
-
-  for (i = 0; i < SECRET_MONOTONIC_COUNTER_LEN / 16; i++) {
-    secbool not_cleared = sectrue;
-    for (int j = 0; j < 16; j++) {
-      if (counter_addr[i * 16 + j] != 0xFF) {
-        not_cleared = secfalse;
-        break;
-      }
-    }
-
-    if (not_cleared != sectrue) {
-      counter++;
+    // Check if the current bit is 0
+    if ((bits[byteIndex] & (1 << bitIndex)) == 0) {
+      // If the bit is 0, increment the value
+      result++;
     } else {
+      // Stop when we find the first 1 bit
       break;
     }
   }
 
-  for (; i < SECRET_MONOTONIC_COUNTER_LEN / 16; i++) {
-    secbool not_cleared = sectrue;
-    for (int j = 0; j < 16; j++) {
-      if (counter_addr[i * 16 + j] != 0xFF) {
-        not_cleared = secfalse;
-        break;
-      }
-    }
-
-    if (not_cleared != sectrue) {
-      // monotonic counter is not valid
-      mpu_restore(mpu_mode);
+  for (; i < FLASH_OTP_BLOCK_SIZE * 8; i++) {
+    // Calculate the byte and bit index within the byte
+    int byteIndex = i / 8;
+    int bitIndex = 7 - (i % 8);
+    if ((bits[byteIndex] & (1 << bitIndex)) == 0) {
+      // If the bit is 0, return false - the monotonic counter is not valid
       return secfalse;
     }
   }
 
-  mpu_restore(mpu_mode);
-
   if (value != NULL) {
-    *value = counter;
+    *value = result;
   } else {
     return secfalse;
   }
+#else
+  *value = dummy_version;
+#endif
 
   return sectrue;
 }

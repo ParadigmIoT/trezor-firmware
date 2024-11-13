@@ -1,6 +1,0 @@
-
-#define ACTUATOR_LRA
-#define ACTUATOR_OPEN_LOOP
-
-#define ACTUATOR_LRA_PERIOD (239)
-#define ACTUATOR_OD_CLAMP (126)

@@ -48,32 +48,24 @@
 
 #include "irq.h"
 #include "mpu.h"
+#include "sdcard-set_clr_card_detect.h"
 #include "sdcard.h"
+
+#ifdef KERNEL_MODE
 
 #define SDMMC_CLK_ENABLE() __HAL_RCC_SDMMC1_CLK_ENABLE()
 #define SDMMC_CLK_DISABLE() __HAL_RCC_SDMMC1_CLK_DISABLE()
 #define SDMMC_IRQn SDMMC1_IRQn
 
-#ifdef KERNEL_MODE
-
 static SD_HandleTypeDef sd_handle = {0};
+static DMA_HandleTypeDef sd_dma = {0};
 
-// this function is inspired by functions in stm32f4xx_ll_sdmmc.c
-uint32_t SDMMC_CmdSetClrCardDetect(SDMMC_TypeDef *SDMMCx, uint32_t Argument) {
-  SDMMC_CmdInitTypeDef sdmmc_cmdinit = {0};
-  uint32_t errorstate = SDMMC_ERROR_NONE;
-
-  sdmmc_cmdinit.Argument = (uint32_t)Argument;
-  sdmmc_cmdinit.CmdIndex = SDMMC_CMD_SD_APP_SET_CLR_CARD_DETECT;
-  sdmmc_cmdinit.Response = SDMMC_RESPONSE_SHORT;
-  sdmmc_cmdinit.WaitForInterrupt = SDMMC_WAIT_NO;
-  sdmmc_cmdinit.CPSM = SDMMC_CPSM_ENABLE;
-  SDMMC_SendCommand(SDMMCx, &sdmmc_cmdinit);
-
-  errorstate = SDMMC_GetCmdResp1(SDMMCx, SDMMC_CMD_SD_APP_SET_CLR_CARD_DETECT,
-                                 SDMMC_CMDTIMEOUT);
-
-  return errorstate;
+void DMA2_Stream3_IRQHandler(void) {
+  IRQ_ENTER(DMA2_Stream3_IRQn);
+  mpu_mode_t mpu_mode = mpu_reconfig(MPU_MODE_DEFAULT);
+  HAL_DMA_IRQHandler(&sd_dma);
+  mpu_restore(mpu_mode);
+  IRQ_EXIT(DMA2_Stream3_IRQn);
 }
 
 static inline void sdcard_default_pin_state(void) {
@@ -113,7 +105,8 @@ static inline void sdcard_default_pin_state(void) {
 }
 
 static inline void sdcard_active_pin_state(void) {
-  HAL_GPIO_WritePin(SD_ENABLE_PORT, SD_ENABLE_PIN, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(SD_ENABLE_PORT, SD_ENABLE_PIN,
+                    GPIO_PIN_RESET);  // SD_ON/PC0
   HAL_Delay(10);  // we need to wait until the circuit fully kicks-in
 
   GPIO_InitTypeDef GPIO_InitStructure = {0};
@@ -121,8 +114,8 @@ static inline void sdcard_active_pin_state(void) {
   // configure SD GPIO
   GPIO_InitStructure.Mode = GPIO_MODE_AF_PP;
   GPIO_InitStructure.Pull = GPIO_PULLUP;
-  GPIO_InitStructure.Speed = GPIO_SPEED_FREQ_MEDIUM;
-  GPIO_InitStructure.Alternate = GPIO_AF12_SDMMC1;
+  GPIO_InitStructure.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+  GPIO_InitStructure.Alternate = GPIO_AF12_SDIO;
   GPIO_InitStructure.Pin =
       GPIO_PIN_8 | GPIO_PIN_9 | GPIO_PIN_10 | GPIO_PIN_11 | GPIO_PIN_12;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStructure);
@@ -130,7 +123,10 @@ static inline void sdcard_active_pin_state(void) {
   HAL_GPIO_Init(GPIOD, &GPIO_InitStructure);
 }
 
-void sdcard_init(void) { sdcard_default_pin_state(); }
+void sdcard_init(void) {
+  sdcard_default_pin_state();
+  __HAL_RCC_DMA2_CLK_ENABLE();
+}
 
 void HAL_SD_MspInit(SD_HandleTypeDef *hsd) {
   if (hsd->Instance == sd_handle.Instance) {
@@ -161,12 +157,13 @@ secbool sdcard_power_on_unchecked(bool low_speed) {
   HAL_Delay(50);
 
   // SD device interface configuration
-  sd_handle.Instance = SDMMC1;
-  sd_handle.Init.ClockEdge = SDMMC_CLOCK_EDGE_RISING;
-  sd_handle.Init.ClockPowerSave = SDMMC_CLOCK_POWER_SAVE_ENABLE;
-  sd_handle.Init.BusWide = SDMMC_BUS_WIDE_1B;
-  sd_handle.Init.HardwareFlowControl = SDMMC_HARDWARE_FLOW_CONTROL_DISABLE;
-  sd_handle.Init.ClockDiv = low_speed ? 1 : 0;
+  sd_handle.Instance = SDIO;
+  sd_handle.Init.ClockEdge = SDIO_CLOCK_EDGE_RISING;
+  sd_handle.Init.ClockBypass = SDIO_CLOCK_BYPASS_DISABLE;
+  sd_handle.Init.ClockPowerSave = SDIO_CLOCK_POWER_SAVE_ENABLE;
+  sd_handle.Init.BusWide = SDIO_BUS_WIDE_1B;
+  sd_handle.Init.HardwareFlowControl = SDIO_HARDWARE_FLOW_CONTROL_DISABLE;
+  sd_handle.Init.ClockDiv = low_speed ? 1 : SDIO_TRANSFER_CLK_DIV;
 
   // init the SD interface, with retry if it's not ready yet
   for (int retry = 10; HAL_SD_Init(&sd_handle) != HAL_OK; retry--) {
@@ -177,7 +174,7 @@ secbool sdcard_power_on_unchecked(bool low_speed) {
   }
 
   // disable the card's internal CD/DAT3 card detect pull-up resistor
-  // to send ACMD42, we have to send CMD55 (APP_CMD) with the card's RCA as
+  // to send ACMD42, we have to send CMD55 (APP_CMD) with with the card's RCA as
   // the argument followed by CMD42 (SET_CLR_CARD_DETECT)
   if (SDMMC_CmdAppCommand(sd_handle.Instance, sd_handle.SdCard.RelCardAdd
                                                   << 16U) != SDMMC_ERROR_NONE) {
@@ -188,7 +185,7 @@ secbool sdcard_power_on_unchecked(bool low_speed) {
   }
 
   // configure the SD bus width for wide operation
-  if (HAL_SD_ConfigWideBusOperation(&sd_handle, SDMMC_BUS_WIDE_4B) != HAL_OK) {
+  if (HAL_SD_ConfigWideBusOperation(&sd_handle, SDIO_BUS_WIDE_4B) != HAL_OK) {
     HAL_SD_DeInit(&sd_handle);
     goto error;
   }
@@ -233,7 +230,7 @@ uint64_t sdcard_get_capacity_in_bytes(void) {
   return (uint64_t)cardinfo.LogBlockNbr * (uint64_t)cardinfo.LogBlockSize;
 }
 
-void SDMMC1_IRQHandler(void) {
+void SDIO_IRQHandler(void) {
   IRQ_ENTER(SDIO_IRQn);
   mpu_mode_t mpu_mode = mpu_reconfig(MPU_MODE_DEFAULT);
   if (sd_handle.Instance) {
@@ -247,10 +244,10 @@ static void sdcard_reset_periph(void) {
   // Fully reset the SDMMC peripheral before calling HAL SD DMA functions.
   // (There could be an outstanding DTIMEOUT event from a previous call and the
   // HAL function enables IRQs before fully configuring the SDMMC peripheral.)
-  SDMMC1->DTIMER = 0;
-  SDMMC1->DLEN = 0;
-  SDMMC1->DCTRL = 0;
-  SDMMC1->ICR = SDMMC_STATIC_FLAGS;
+  SDIO->DTIMER = 0;
+  SDIO->DLEN = 0;
+  SDIO->DCTRL = 0;
+  SDIO->ICR = SDMMC_STATIC_FLAGS;
 }
 
 static HAL_StatusTypeDef sdcard_wait_finished(SD_HandleTypeDef *sd,
@@ -303,12 +300,44 @@ secbool sdcard_read_blocks(uint32_t *dest, uint32_t block_num,
 
   HAL_StatusTypeDef err = HAL_OK;
 
+  sd_dma.Instance = DMA2_Stream3;
+  sd_dma.State = HAL_DMA_STATE_RESET;
+  sd_dma.Init.Channel = DMA_CHANNEL_4;
+  sd_dma.Init.Direction = DMA_PERIPH_TO_MEMORY;
+  sd_dma.Init.FIFOMode = DMA_FIFOMODE_ENABLE;
+  sd_dma.Init.FIFOThreshold = DMA_FIFO_THRESHOLD_FULL;
+  sd_dma.Init.MemBurst = DMA_MBURST_INC4;
+  sd_dma.Init.MemDataAlignment = DMA_MDATAALIGN_WORD;
+  sd_dma.Init.MemInc = DMA_MINC_ENABLE;
+  sd_dma.Init.Mode = DMA_PFCTRL;
+  sd_dma.Init.PeriphBurst = DMA_PBURST_INC4;
+  sd_dma.Init.PeriphDataAlignment = DMA_PDATAALIGN_WORD;
+  sd_dma.Init.PeriphInc = DMA_PINC_DISABLE;
+  sd_dma.Init.Priority = DMA_PRIORITY_VERY_HIGH;
+  sd_dma.Parent = &sd_handle;
+  HAL_DMA_Init(&sd_dma);
+
+  sd_handle.hdmarx = &sd_dma;
+
+  // we need to assign hdmatx even though it's unused
+  // because STMHAL tries to access its error code in SD_DMAError()
+  // even though it shouldn't :-/
+  // this will get removed eventually when we update to new STMHAL
+  DMA_HandleTypeDef dummy_dma = {0};
+  sd_handle.hdmatx = &dummy_dma;
+
+  NVIC_EnableIRQ(DMA2_Stream3_IRQn);
+
   sdcard_reset_periph();
   err =
       HAL_SD_ReadBlocks_DMA(&sd_handle, (uint8_t *)dest, block_num, num_blocks);
   if (err == HAL_OK) {
     err = sdcard_wait_finished(&sd_handle, 5000);
   }
+
+  NVIC_DisableIRQ(DMA2_Stream3_IRQn);
+  HAL_DMA_DeInit(&sd_dma);
+  sd_handle.hdmarx = NULL;
 
   return sectrue * (err == HAL_OK);
 }
@@ -327,12 +356,44 @@ secbool sdcard_write_blocks(const uint32_t *src, uint32_t block_num,
 
   HAL_StatusTypeDef err = HAL_OK;
 
+  sd_dma.Instance = DMA2_Stream3;
+  sd_dma.State = HAL_DMA_STATE_RESET;
+  sd_dma.Init.Channel = DMA_CHANNEL_4;
+  sd_dma.Init.Direction = DMA_MEMORY_TO_PERIPH;
+  sd_dma.Init.FIFOMode = DMA_FIFOMODE_ENABLE;
+  sd_dma.Init.FIFOThreshold = DMA_FIFO_THRESHOLD_FULL;
+  sd_dma.Init.MemBurst = DMA_MBURST_INC4;
+  sd_dma.Init.MemDataAlignment = DMA_MDATAALIGN_WORD;
+  sd_dma.Init.MemInc = DMA_MINC_ENABLE;
+  sd_dma.Init.Mode = DMA_PFCTRL;
+  sd_dma.Init.PeriphBurst = DMA_PBURST_INC4;
+  sd_dma.Init.PeriphDataAlignment = DMA_PDATAALIGN_WORD;
+  sd_dma.Init.PeriphInc = DMA_PINC_DISABLE;
+  sd_dma.Init.Priority = DMA_PRIORITY_VERY_HIGH;
+  sd_dma.Parent = &sd_handle;
+  HAL_DMA_Init(&sd_dma);
+
+  sd_handle.hdmatx = &sd_dma;
+
+  // we need to assign hdmarx even though it's unused
+  // because HAL tries to access its error code in SD_DMAError()
+  // even though it shouldn't :-/
+  // this will get removed eventually when we update to new STMHAL
+  DMA_HandleTypeDef dummy_dma = {0};
+  sd_handle.hdmarx = &dummy_dma;
+
+  NVIC_EnableIRQ(DMA2_Stream3_IRQn);
+
   sdcard_reset_periph();
   err =
       HAL_SD_WriteBlocks_DMA(&sd_handle, (uint8_t *)src, block_num, num_blocks);
   if (err == HAL_OK) {
     err = sdcard_wait_finished(&sd_handle, 5000);
   }
+
+  NVIC_DisableIRQ(DMA2_Stream3_IRQn);
+  HAL_DMA_DeInit(&sd_dma);
+  sd_handle.hdmatx = NULL;
 
   return sectrue * (err == HAL_OK);
 }

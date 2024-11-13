@@ -21,7 +21,7 @@
 #include <trezor_rtl.h>
 
 #include "entropy.h"
-#include "flash_otp.h"
+// #include "flash_otp.h"
 #include "mpu.h"
 #include "rand.h"
 
@@ -51,7 +51,7 @@ void entropy_init(void) {
     ensure(flash_otp_write(FLASH_OTP_BLOCK_RANDOMNESS, 0, entropy,
                            FLASH_OTP_BLOCK_SIZE),
            NULL);
-    // ensure(flash_otp_lock(FLASH_OTP_BLOCK_RANDOMNESS), NULL);
+    ensure(flash_otp_lock(FLASH_OTP_BLOCK_RANDOMNESS), NULL);
   }
   // collect entropy from OTP randomness block
   ensure(flash_otp_read(FLASH_OTP_BLOCK_RANDOMNESS, 0, g_hw_entropy + 12,

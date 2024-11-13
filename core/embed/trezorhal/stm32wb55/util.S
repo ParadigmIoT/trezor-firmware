@@ -26,7 +26,17 @@ memset_reg:
   .global jump_to
   .type jump_to, STT_FUNC
 jump_to:
+  ldr r1, =0
+  bl jump_to_with_flag
+
+  // Jump to address given in first argument R0 that points to next's stage's VTOR
+  // Clear memory and all registers before jump. Second argument R1 is copied to R11
+  // and kept after jump.
+  .global jump_to_with_flag
+  .type jump_to_with_flag, STT_FUNC
+jump_to_with_flag:
   mov r4, r0            // save input argument r0 (the address of the next stage's vector table) (r4 is callee save)
+  mov r11, r1           // save second argument in "flag" register because we'll be cleaning RAM
   // this subroutine re-points the exception handlers before the C code
   // that comprises them has been given a good environment to run.
   // therefore, this code needs to disable interrupts before the VTOR
@@ -36,6 +46,7 @@ jump_to:
   // "there is no requirement to insert memory barrier instructions after CPSID".
   cpsid f
   // wipe memory at the end of the current stage of code
+  bl clear_otg_hs_memory
   ldr r2, =0             // r2 - the word-sized value to be written
   ldr r0, =_handoff_clear_ram_0_start
   ldr r1, =_handoff_clear_ram_0_end
@@ -43,12 +54,8 @@ jump_to:
   ldr r0, =_handoff_clear_ram_1_start
   ldr r1, =_handoff_clear_ram_1_end
   bl memset_reg
-  ldr r0, =_handoff_clear_ram_2_start
-  ldr r1, =_handoff_clear_ram_2_end
-  bl memset_reg
-
   mov lr, r4
-  // clear out the general purpose registers before the next stage's code can run
+  // clear out the general purpose registers before the next stage's except the register with flag R11
   ldr r0, =0
   mov r1, r0
   mov r2, r0
@@ -60,7 +67,6 @@ jump_to:
   mov r8, r0
   mov r9, r0
   mov r10, r0
-  mov r11, r0
   mov r12, r0
   // give the next stage a fresh main stack pointer
   ldr r0, [lr]          // set r0 to the main stack pointer in the next stage's vector table
@@ -103,13 +109,7 @@ shutdown_privileged:
   ldr r0, =_shutdown_clear_ram_1_start
   ldr r1, =_shutdown_clear_ram_1_end
   bl memset_reg
-  ldr r0, =_shutdown_clear_ram_2_start
-  ldr r1, =_shutdown_clear_ram_2_end
-  bl memset_reg
-  ldr r0, =_shutdown_clear_ram_3_start
-  ldr r1, =_shutdown_clear_ram_3_end
-  bl memset_reg
-
+  bl clear_otg_hs_memory
   ldr r0, =1
   msr control, r0 // jump to unprivileged mode
   ldr r0, =0

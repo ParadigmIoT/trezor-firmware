@@ -26,15 +26,24 @@
 // Convert sector number to address
 //
 // This conversion is used in static assert in definitions below
-#define FLASH_SECTOR_TO_ADDR(sector) (FLASH_BASE + (sector) * FLASH_PAGE_SIZE)
+#define FLASH_SECTOR_TO_ADDR(sector)         \
+  (FLASH_BASE + ((sector) / 12) * 0x100000 + \
+   (((sector) % 12) < 4                      \
+        ? ((sector) % 12) * 0x4000           \
+        : (((sector) % 12) < 5 ? 0x10000 : ((sector) % 12 - 4) * 0x20000)))
 
 // Define all flash areas as `const flash_area_t ID = { .. };`
 
 DEFINE_ARRAY2_AREA(STORAGE_AREAS, STORAGE_1, STORAGE_2);
 DEFINE_SINGLE_AREA(BOARDLOADER_AREA, BOARDLOADER);
 DEFINE_SINGLE_AREA(BOOTLOADER_AREA, BOOTLOADER);
-DEFINE_SINGLE_AREA(FIRMWARE_AREA, FIRMWARE);
+DEFINE_SPLIT2_AREA(FIRMWARE_AREA, FIRMWARE_P1, FIRMWARE_P2);
+
+#ifdef SECRET_SECTOR_START
 DEFINE_SINGLE_AREA(SECRET_AREA, SECRET);
-DEFINE_SINGLE_AREA(BHK_AREA, BHK);
+#else
+DEFINE_EMPTY_AREA(SECRET_AREA);
+#endif
+
 DEFINE_SINGLE_AREA(ASSETS_AREA, ASSETS);
-DEFINE_EMPTY_AREA(UNUSED_AREA);
+DEFINE_SPLIT2_AREA(UNUSED_AREA, UNUSED_1, UNUSED_2);

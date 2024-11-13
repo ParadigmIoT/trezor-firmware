@@ -4,38 +4,39 @@ from __future__ import annotations
 def stm32wb55_common_files(env, defines, sources, paths):
     defines += [
         ("STM32_HAL_H", '"<stm32wbxx.h>"'),
-        ("FLASH_BLOCK_WORDS", "4"),
-        ("USE_TRUSTZONE", "1"),
-        ("CONFIDENTIAL", "'__attribute__((section(\".confidential\")))'"),
+        ("FLASH_BLOCK_WORDS", "1"),
+        ("FLASH_BIT_ACCESS", "1"),
+        ("CONFIDENTIAL", ""),
     ]
 
     paths += [
         "embed/trezorhal/stm32wb55",
-        "vendor/stm32wbxx_hal_driver/Inc",
-        "vendor/cmsis_device_wb/Include",
-        "vendor/cmsis_5/CMSIS/Core/Include",
+        "vendor/micropython/lib/cmsis/inc",
+        "vendor/micropython/lib/stm32lib/STM32WBxx_HAL_Driver/Inc",
+        "vendor/micropython/lib/stm32lib/CMSIS/STM32WBxx/Include",
     ]
 
     sources += [
-        "vendor/stm32wbxx_hal_driver/Src/stm32wbxx_hal.c",
-        "vendor/stm32wbxx_hal_driver/Src/stm32wbxx_hal_cortex.c",
-        "vendor/stm32wbxx_hal_driver/Src/stm32wbxx_hal_cryp.c",
-        "vendor/stm32wbxx_hal_driver/Src/stm32wbxx_hal_dma.c",
-        "vendor/stm32wbxx_hal_driver/Src/stm32wbxx_hal_dma_ex.c",
-        "vendor/stm32wbxx_hal_driver/Src/stm32wbxx_hal_exti.c",
-        "vendor/stm32wbxx_hal_driver/Src/stm32wbxx_hal_flash.c",
-        "vendor/stm32wbxx_hal_driver/Src/stm32wbxx_hal_flash_ex.c",
-        "vendor/stm32wbxx_hal_driver/Src/stm32wbxx_hal_gpio.c",
-        "vendor/stm32wbxx_hal_driver/Src/stm32wbxx_hal_i2c.c",
-        "vendor/stm32wbxx_hal_driver/Src/stm32wbxx_hal_i2c_ex.c",
-        "vendor/stm32wbxx_hal_driver/Src/stm32wbxx_hal_pcd.c",
-        "vendor/stm32wbxx_hal_driver/Src/stm32wbxx_hal_pcd_ex.c",
-        "vendor/stm32wbxx_hal_driver/Src/stm32wbxx_hal_pwr.c",
-        "vendor/stm32wbxx_hal_driver/Src/stm32wbxx_hal_pwr_ex.c",
-        "vendor/stm32wbxx_hal_driver/Src/stm32wbxx_hal_rcc.c",
-        "vendor/stm32wbxx_hal_driver/Src/stm32wbxx_hal_rcc_ex.c",
-        "vendor/stm32wbxx_hal_driver/Src/stm32wbxx_hal_rtc.c",
-        "vendor/stm32wbxx_hal_driver/Src/stm32wbxx_hal_spi.c",
+        "vendor/micropython/lib/stm32lib/STM32WBxx_HAL_Driver/Src/stm32wbxx_hal.c",
+        "vendor/micropython/lib/stm32lib/STM32WBxx_HAL_Driver/Src/stm32wbxx_hal_cortex.c",
+        "vendor/micropython/lib/stm32lib/STM32WBxx_HAL_Driver/Src/stm32wbxx_hal_flash.c",
+        "vendor/micropython/lib/stm32lib/STM32WBxx_HAL_Driver/Src/stm32wbxx_hal_flash_ex.c",
+        "vendor/micropython/lib/stm32lib/STM32WBxx_HAL_Driver/Src/stm32wbxx_hal_gpio.c",
+        "vendor/micropython/lib/stm32lib/STM32WBxx_HAL_Driver/Src/stm32wbxx_hal_i2c.c",
+        # "vendor/micropython/lib/stm32lib/STM32WBxx_HAL_Driver/Src/stm32wbxx_hal_ltdc.c",
+        "vendor/micropython/lib/stm32lib/STM32WBxx_HAL_Driver/Src/stm32wbxx_hal_pcd.c",
+        "vendor/micropython/lib/stm32lib/STM32WBxx_HAL_Driver/Src/stm32wbxx_hal_pcd_ex.c",
+        "vendor/micropython/lib/stm32lib/STM32WBxx_HAL_Driver/Src/stm32wbxx_hal_pwr.c",
+        "vendor/micropython/lib/stm32lib/STM32WBxx_HAL_Driver/Src/stm32wbxx_hal_rcc.c",
+        "vendor/micropython/lib/stm32lib/STM32WBxx_HAL_Driver/Src/stm32wbxx_hal_rcc_ex.c",
+        # "vendor/micropython/lib/stm32lib/STM32WBxx_HAL_Driver/Src/stm32wbxx_hal_sd.c",
+        "vendor/micropython/lib/stm32lib/STM32WBxx_HAL_Driver/Src/stm32wbxx_hal_spi.c",
+        # "vendor/micropython/lib/stm32lib/STM32WBxx_HAL_Driver/Src/stm32wbxx_hal_sram.c",
+        # "vendor/micropython/lib/stm32lib/STM32WBxx_HAL_Driver/Src/stm32wbxx_hal_sdram.c",
+        "vendor/micropython/lib/stm32lib/STM32WBxx_HAL_Driver/Src/stm32wbxx_hal_tim.c",
+        "vendor/micropython/lib/stm32lib/STM32WBxx_HAL_Driver/Src/stm32wbxx_hal_tim_ex.c",
+        # "vendor/micropython/lib/stm32lib/STM32WBxx_HAL_Driver/Src/stm32wbxx_ll_fmc.c",
+        # "vendor/micropython/lib/stm32lib/STM32WBxx_HAL_Driver/Src/stm32wbxx_ll_sdmmc.c",
     ]
 
     sources += [
@@ -47,7 +48,6 @@ def stm32wb55_common_files(env, defines, sources, paths):
         "embed/trezorhal/stm32wb55/flash_otp.c",
         "embed/trezorhal/stm32wb55/fwutils.c",
         "embed/trezorhal/stm32wb55/layout.c",
-        "embed/trezorhal/stm32wb55/hash_processor.c",
         "embed/trezorhal/stm32wb55/monoctr.c",
         "embed/trezorhal/stm32wb55/mpu.c",
         "embed/trezorhal/stm32wb55/option_bytes.c",
@@ -56,7 +56,6 @@ def stm32wb55_common_files(env, defines, sources, paths):
         "embed/trezorhal/stm32wb55/reset_flags.c",
         "embed/trezorhal/stm32wb55/rng.c",
         "embed/trezorhal/stm32wb55/secret.c",
-        "embed/trezorhal/stm32wb55/secure_aes.c",
         "embed/trezorhal/stm32wb55/startup_init.c",
         "embed/trezorhal/stm32wb55/syscall.c",
         "embed/trezorhal/stm32wb55/syscall_dispatch.c",
@@ -67,9 +66,7 @@ def stm32wb55_common_files(env, defines, sources, paths):
         "embed/trezorhal/stm32wb55/systask.c",
         "embed/trezorhal/stm32wb55/systick.c",
         "embed/trezorhal/stm32wb55/systimer.c",
-        "embed/trezorhal/stm32wb55/tamper.c",
         "embed/trezorhal/stm32wb55/time_estimate.c",
-        "embed/trezorhal/stm32wb55/trustzone.c",
         "embed/trezorhal/stm32wb55/unit_properties.c",
         "embed/trezorhal/stm32wb55/vectortable.S",
     ]
@@ -87,3 +84,4 @@ def stm32wb55_common_files(env, defines, sources, paths):
         ]
 
     env.get("ENV")["SUFFIX"] = "stm32wb55"
+    env.get("ENV")["LINKER_SCRIPT"] = """embed/trezorhal/stm32wb55/linker/{target}.ld"""
