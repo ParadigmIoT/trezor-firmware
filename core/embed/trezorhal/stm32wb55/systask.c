@@ -625,8 +625,8 @@ void NMI_Handler(void) {
   mpu_mode_t mpu_mode = mpu_reconfig(MPU_MODE_DEFAULT);
 #ifdef STM32WB55
   if ((RCC->CIFR & RCC_CIFR_CSSF) != 0) {
-#else
-  if ((RCC->CIR & RCC_CIR_CSSF) != 0) {
+// #else
+//   if ((RCC->CIR & RCC_CIR_CSSF) != 0) {
 #endif
     // Clock Security System triggered NMI
     systask_exit_fault(true, __get_MSP());

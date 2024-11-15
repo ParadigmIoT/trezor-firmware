@@ -21,7 +21,7 @@
 #include <trezor_rtl.h>
 
 #include "entropy.h"
-// #include "flash_otp.h"
+#include "flash_otp.h"
 #include "mpu.h"
 #include "rand.h"
 

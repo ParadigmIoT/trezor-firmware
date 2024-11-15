@@ -76,13 +76,13 @@ static uint32_t flash_wait_and_clear_status_flags(void) {
 secbool flash_check_option_bytes(void) {
   flash_wait_and_clear_status_flags();
   // check values stored in flash interface registers
-  if ((FLASH->OPTCR & ~3) !=
+  if ((FLASH->OPTR & ~3) !=
       FLASH_OPTCR_VALUE) {  // ignore bits 0 and 1 because they are control bits
     return secfalse;
   }
-  if (FLASH->OPTCR1 != FLASH_OPTCR1_nWRP) {
-    return secfalse;
-  }
+  // if (FLASH->OPTCR1 != FLASH_OPTCR1_nWRP) {
+  //   return secfalse;
+  // }
 
   mpu_mode_t mode = mpu_reconfig(MPU_MODE_FLASHOB);
   // check values stored in flash memory

@@ -42,7 +42,7 @@ secbool flash_otp_read(uint8_t block, uint8_t offset, uint8_t *data,
   mpu_mode_t mpu_mode = mpu_reconfig(MPU_MODE_OTP);
 
   for (uint8_t i = 0; i < datalen; i++) {
-    data[i] = *(__IO uint8_t *)(FLASH_OTP_BASE + block * FLASH_OTP_BLOCK_SIZE +
+    data[i] = *(__IO uint8_t *)(OTP_AREA_BASE + block * FLASH_OTP_BLOCK_SIZE +
                                 offset + i);
   }
 
@@ -63,8 +63,8 @@ secbool flash_otp_write(uint8_t block, uint8_t offset, const uint8_t *data,
   ensure(flash_unlock_write(), NULL);
   for (uint8_t i = 0; i < datalen; i++) {
     uint32_t address =
-        FLASH_OTP_BASE + block * FLASH_OTP_BLOCK_SIZE + offset + i;
-    ensure(sectrue * (HAL_OK == HAL_FLASH_Program(FLASH_TYPEPROGRAM_BYTE,
+        OTP_AREA_BASE + block * FLASH_OTP_BLOCK_SIZE + offset + i;
+    ensure(sectrue * (HAL_OK == HAL_FLASH_Program(FLASH_TYPEPROGRAM_DOUBLEWORD,
                                                   address, data[i])),
            NULL);
   }
@@ -83,7 +83,7 @@ secbool flash_otp_lock(uint8_t block) {
   mpu_mode_t mpu_mode = mpu_reconfig(MPU_MODE_OTP);
 
   ensure(flash_unlock_write(), NULL);
-  HAL_StatusTypeDef ret = HAL_FLASH_Program(FLASH_TYPEPROGRAM_BYTE,
+  HAL_StatusTypeDef ret = HAL_FLASH_Program(FLASH_TYPEPROGRAM_DOUBLEWORD,
                                             FLASH_OTP_LOCK_BASE + block, 0x00);
   ensure(flash_lock_write(), NULL);
 
