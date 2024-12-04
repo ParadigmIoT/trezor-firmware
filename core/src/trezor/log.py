@@ -18,7 +18,7 @@ _leveldict = {
 }
 
 level = _DEBUG
-color = True
+color = False
 
 
 def _log(name: str, mlevel: int, msg: str, *args: Any) -> None:

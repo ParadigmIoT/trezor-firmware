@@ -171,8 +171,8 @@
 // uncomment DEST_RTT and comment DEST_SYSTEMVIEW
 // if you want to print to RTT instead of SystemView
 // OpenOCD supports only the RTT output method
-// #define SYSTEMVIEW_DEST_RTT         (1)
-#define SYSTEMVIEW_DEST_SYSTEMVIEW  (1)
+#define SYSTEMVIEW_DEST_RTT         (1)
+// #define SYSTEMVIEW_DEST_SYSTEMVIEW  (1)
 #endif
 
 #define MP_STATE_PORT MP_STATE_VM
