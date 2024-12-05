@@ -389,11 +389,28 @@ SOURCE_QSTR = SOURCE_MOD + SOURCE_MICROPYTHON + SOURCE_MICROPYTHON_SPEED
 
 env = Environment(
     ENV=os.environ,
-    CFLAGS=f"{ARGUMENTS.get('CFLAGS', '')} -DPRODUCTION={int(PRODUCTION)} -DPYOPT={PYOPT} -DBOOTLOADER_QA={int(BOOTLOADER_QA)} -DBITCOIN_ONLY={BITCOIN_ONLY}",
+    CFLAGS=f"{ARGUMENTS.get('CFLAGS', '')} -DPRODUCTION={int(PRODUCTION)} -DPYOPT={PYOPT} -DBOOTLOADER_QA={int(BOOTLOADER_QA)} -DBITCOIN_ONLY={BITCOIN_ONLY} -DSYSTEM_VIEW=1",
     CPPDEFINES_IMPLICIT=[],
     CPPDEFPREFIX="-D'",
     CPPDEFSUFFIX="'",
     )
+
+if FEATURE_FLAGS["SYSTEM_VIEW"]:
+    SOURCE_MOD += [
+        'embed/sys/systemview/stm32/config/SEGGER_SYSVIEW_Config_NoOS.c',
+        'embed/sys/systemview/stm32/segger/SEGGER_SYSVIEW.c',
+        'embed/sys/systemview/stm32/segger/SEGGER_RTT.c',
+        'embed/sys/systemview/stm32/segger/SEGGER_RTT_ASM_ARMv7M.S',
+        'embed/sys/systemview/stm32/segger/Syscalls/SEGGER_RTT_Syscalls_GCC.c',
+        'embed/sys/systemview/systemview.c',
+    ]
+    CPPPATH_MOD += [
+        'embed/sys/systemview/inc',
+        'embed/sys/systemview/stm32/config',
+        'embed/sys/systemview/stm32/segger',
+    ]
+    CPPDEFINES_MOD += ['SYSTEM_VIEW']
+    CCFLAGS_MOD += '-DSYSTEM_VIEW '
 
 FEATURES_AVAILABLE = models.configure_board(TREZOR_MODEL, HW_REVISION, FEATURES_WANTED, env, CPPDEFINES_HAL, SOURCE_HAL, PATH_HAL)
 
@@ -726,7 +743,7 @@ if FROZEN:
 
 env.Replace(
     ALLSOURCES=source_files,
-    ALLDEFS=tools.get_defs_for_cmake(env['CPPDEFINES'] + env['CPPDEFINES_IMPLICIT'] + [f"PRODUCTION={int(PRODUCTION)}", f"BOOTLOADER_QA={int(BOOTLOADER_QA)}", f"PYOPT={PYOPT}", f"BITCOIN_ONLY={BITCOIN_ONLY}"]))
+    ALLDEFS=tools.get_defs_for_cmake(env['CPPDEFINES'] + env['CPPDEFINES_IMPLICIT'] + [f"PRODUCTION={int(PRODUCTION)}", f"BOOTLOADER_QA={int(BOOTLOADER_QA)}", f"PYOPT={PYOPT}", f"BITCOIN_ONLY={BITCOIN_ONLY}", f"SYSTEM_VIEW=1"]))
 
 
 cmake_gen = env.Command(
