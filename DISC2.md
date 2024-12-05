@@ -33,21 +33,22 @@ To build for the Discovery 2 DK, follow these steps:
     Device STM32U5A9NJ
     if swd
     speed auto
-    loadfile \\wsl.localhost\Ubuntu-24.04\home\wsl-user\trezor-firmware\core\build\prodtest\combined.bin 0x0c004000
+    loadfile core/build/prodtest/combined.bin 0x0c004000
     r
     g
     exit
     ```
+    Replace `core/build/prodtest/combined.bin` with the actual path to your `combined.bin` file if it differs.
 2. Connect via J-Link JTAG connector to CN3 with jumpers on JP1, JP4 (CHGR), JP2, JP3, and JP6. Connect USB ST-LINK (micro-b) for power.
 3. Run the script using the following command:
     ```sh
-    JLink.exe -CommanderScript ./script.jlink
+    ./JLink.exe -CommanderScript ./script.jlink
     ```
 
 # Enabling System View and RTT
 
 To enable System View and RTT for debugging, follow these steps:
-1. If running on `rtt_debug_build_branch`, ensure `"SYSTEM_VIEW": True` in `FEATURE_FLAGS`. Otherwise, follow the [System View Instructions](https://docs.trezor.io/trezor-firmware/core/systemview/index.html). These instructions apply to DISC2 as well.
+1. If running on `rtt_debug_build` branch, ensure `"SYSTEM_VIEW": True` in `FEATURE_FLAGS`. Otherwise, follow the [System View Instructions](https://docs.trezor.io/trezor-firmware/core/systemview/index.html). These instructions apply to DISC2 as well.
 2. Rebuild using the build instructions mentioned above, but replace the 4th command with:
     ```sh
     make -j build PYOPT=0 BITCOIN_ONLY=1 V=1 VERBOSE=1 TREZOR_MODEL=DISC2 BOOTLOADER_DEVEL=1 SYSTEM_VIEW=1
