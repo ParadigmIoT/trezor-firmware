@@ -17,17 +17,37 @@ To build for the Discovery 2 DK, follow these steps:
 
 # Flashing Instructions
 
-1. Install STM32CubeProgrammer
-2. Connect to DISC2 over ST-Link or J-Link in Hot Plug mode
-3. Select the `core/build/prodtest/combined.bin` file to flash on DISC2
+## Using STM32CubeProgrammer
 
-> **Warning:** TZEN will be enabled after flashing. This is normal and will allow future reflashing with the process described above.
+1. Install [STM32CubeProgrammer](https://www.st.com/en/development-tools/stm32cubeprog.html).
+2. Connect the DISC2 device via ST-Link or J-Link in Hot Plug mode. If connecting via J-Link, connect via J-Link JTAG connector to CN3 with jumpers on JP1, JP4 (CHGR), JP2, JP3, and JP6. Connect USB ST-LINK (micro-b) for power.
+3. Open STM32CubeProgrammer and select the `core/build/prodtest/combined.bin` file.
+4. Flash the selected file to the DISC2 device.
+
+> **Warning:** TZEN will be enabled after flashing. This is normal and will allow future reflashing using the process described above.
+
+## Using J-Link
+
+1. Create a `script.jlink` file with the following contents:
+    ```sh
+    Device STM32U5A9NJ
+    if swd
+    speed auto
+    loadfile \\wsl.localhost\Ubuntu-24.04\home\wsl-user\trezor-firmware\core\build\prodtest\combined.bin 0x0c004000
+    r
+    g
+    exit
+    ```
+2. Connect via J-Link JTAG connector to CN3 with jumpers on JP1, JP4 (CHGR), JP2, JP3, and JP6. Connect USB ST-LINK (micro-b) for power.
+3. Run the script using the following command:
+    ```sh
+    JLink.exe -CommanderScript ./script.jlink
+    ```
 
 # Enabling System View and RTT
 
 To enable System View and RTT for debugging, follow these steps:
-
-1. Follow the [System View Instructions](https://docs.trezor.io/trezor-firmware/core/systemview/index.html). These instructions apply to DISC2 as well.
+1. If running on `rtt_debug_build_branch`, ensure `"SYSTEM_VIEW": True` in `FEATURE_FLAGS`. Otherwise, follow the [System View Instructions](https://docs.trezor.io/trezor-firmware/core/systemview/index.html). These instructions apply to DISC2 as well.
 2. Rebuild using the build instructions mentioned above, but replace the 4th command with:
     ```sh
     make -j build PYOPT=0 BITCOIN_ONLY=1 V=1 VERBOSE=1 TREZOR_MODEL=DISC2 BOOTLOADER_DEVEL=1 SYSTEM_VIEW=1

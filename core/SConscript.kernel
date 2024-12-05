@@ -5,6 +5,7 @@ import os
 import tools, models
 
 BITCOIN_ONLY = ARGUMENTS.get('BITCOIN_ONLY', '0')
+SYSTEM_VIEW = ARGUMENTS.get('SYSTEM_VIEW', '0')
 PRODUCTION = ARGUMENTS.get('PRODUCTION', '0') == '1'
 BOOTLOADER_QA = ARGUMENTS.get('BOOTLOADER_QA', '0') == '1'
 BOOTLOADER_DEVEL = ARGUMENTS.get('BOOTLOADER_DEVEL', '0') == '1'
@@ -12,7 +13,6 @@ EVERYTHING = BITCOIN_ONLY != '1'
 TREZOR_MODEL = ARGUMENTS.get('TREZOR_MODEL', 'T')
 CMAKELISTS = int(ARGUMENTS.get('CMAKELISTS', 0))
 PYOPT = ARGUMENTS.get('PYOPT', '0')
-COPT=os.getenv('OPTIMIZE', '-Og')
 DISABLE_OPTIGA = ARGUMENTS.get('DISABLE_OPTIGA', '0') == '1'
 HW_REVISION = ARGUMENTS.get('HW_REVISION', None)
 THP = ARGUMENTS.get('THP', '0') == '1' # Trezor-Host Protocol
@@ -301,7 +301,7 @@ ALLPATHS = [
     ] + CPPPATH_MOD + PATH_HAL
 
 env.Replace(
-    COPT=env.get('ENV').get('OPTIMIZE', '-Og'),
+    COPT=env.get('ENV').get('OPTIMIZE', '-Os'),
     CCFLAGS='$COPT '
     '-g3 '
     '-nostdlib '
