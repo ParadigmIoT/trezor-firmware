@@ -53,3 +53,8 @@ To enable System View and RTT for debugging, follow these steps:
     ```sh
     make -j build PYOPT=0 BITCOIN_ONLY=1 V=1 VERBOSE=1 TREZOR_MODEL=DISC2 BOOTLOADER_DEVEL=1 SYSTEM_VIEW=1
     ```
+
+
+# Open in Ozone
+
+1. To debug firmware in Ozone J-Link debugger, open trezor.jdebug file
