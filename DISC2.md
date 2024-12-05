@@ -48,8 +48,28 @@ To build for the Discovery 2 DK, follow these steps:
 # Enabling System View and RTT
 
 To enable System View and RTT for debugging, follow these steps:
-1. If running on `rtt_debug_build` branch, ensure `"SYSTEM_VIEW": True` in `FEATURE_FLAGS`. Otherwise, follow the [System View Instructions](https://docs.trezor.io/trezor-firmware/core/systemview/index.html). These instructions apply to DISC2 as well.
-2. Rebuild using the build instructions mentioned above, but replace the 4th command with:
+1. Follow the [System View Instructions](https://docs.trezor.io/trezor-firmware/core/systemview/index.html). These instructions apply to DISC2 as well.
+2. Add the following to SConscript.firmware
+```python3
+SYSTEM_VIEW = ARGUMENTS.get('SYSTEM_VIEW', '0')
+if FEATURE_FLAGS["SYSTEM_VIEW"]:
+    SOURCE_MOD += [
+        'embed/sys/systemview/stm32/config/SEGGER_SYSVIEW_Config_NoOS.c',
+        'embed/sys/systemview/stm32/segger/SEGGER_SYSVIEW.c',
+        'embed/sys/systemview/stm32/segger/SEGGER_RTT.c',
+        'embed/sys/systemview/stm32/segger/SEGGER_RTT_ASM_ARMv7M.S',
+        'embed/sys/systemview/stm32/segger/Syscalls/SEGGER_RTT_Syscalls_GCC.c',
+        'embed/sys/systemview/systemview.c',
+    ]
+    CPPPATH_MOD += [
+        'embed/sys/systemview/inc',
+        'embed/sys/systemview/stm32/config',
+        'embed/sys/systemview/stm32/segger',
+    ]
+    CPPDEFINES_MOD += ['SYSTEM_VIEW']
+    CCFLAGS_MOD += '-DSYSTEM_VIEW '
+```
+3. Rebuild using the build instructions mentioned above, but replace the 4th command with:
     ```sh
     make -j build PYOPT=0 BITCOIN_ONLY=1 V=1 VERBOSE=1 TREZOR_MODEL=DISC2 BOOTLOADER_DEVEL=1 SYSTEM_VIEW=1
     ```

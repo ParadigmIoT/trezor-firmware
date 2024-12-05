@@ -743,7 +743,7 @@ if FROZEN:
 
 env.Replace(
     ALLSOURCES=source_files,
-    ALLDEFS=tools.get_defs_for_cmake(env['CPPDEFINES'] + env['CPPDEFINES_IMPLICIT'] + [f"PRODUCTION={int(PRODUCTION)}", f"BOOTLOADER_QA={int(BOOTLOADER_QA)}", f"PYOPT={PYOPT}", f"BITCOIN_ONLY={BITCOIN_ONLY}", f"SYSTEM_VIEW={int(SYSTEM_VIEW)}"]))
+    ALLDEFS=tools.get_defs_for_cmake(env['CPPDEFINES'] + env['CPPDEFINES_IMPLICIT'] + [f"PRODUCTION={int(PRODUCTION)}", f"BOOTLOADER_QA={int(BOOTLOADER_QA)}", f"PYOPT={PYOPT}", f"BITCOIN_ONLY={BITCOIN_ONLY}"]))
 
 
 cmake_gen = env.Command(
