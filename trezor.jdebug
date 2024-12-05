@@ -1,0 +1,33 @@
+/*********************************************************************
+*                                                                     
+*       OnProjectLoad                                                 
+*                                                                     
+* Function description                                                
+*   Project load routine. Required.                                   
+*                                                                     
+**********************************************************************
+*/                                                                    
+void OnProjectLoad (void) {
+  Edit.SysVar (VAR_RTT_ENABLED, 1);
+  //
+  // Dialog-generated settings
+  //
+  // Load the ELF file (use Windows path for Ozone running on Windows)
+  
+  Project.SetDevice ("STM32U5A9NJ");
+  Project.SetHostIF("USB", "");
+  Project.SetTargetIF("SWD"); // or "SWD" depending on your setup
+  Project.SetTIFSpeed("Automatic");
+
+  File.Open("\\\\wsl.localhost\\Ubuntu-24.04\\home\\wsl-user\\trezor-firmware\\core\\build\\firmware\\firmware.elf");
+
+  // Add path substitution for source files (Linux to Windows path)
+Project.AddPathSubstitute ("/home/wsl-user/trezor-firmware/core/vendor/", "\\\\wsl.localhost\\Ubuntu-24.04\\home\\wsl-user\\trezor-firmware\\vendor\\");
+// Project.AddPathSubstitute ("/home/wsl-user/trezor-firmware/", "\\\\wsl.localhost\\Ubuntu-24.04\\home\\wsl-user\\trezor-firmware\\");
+  
+  Edit.Preference (PREF_TERMINAL_CLEAR_ON_RESET, 1);
+  // Start debugging automatically
+  Debug.SetConnectMode (CM_ATTACH);
+  Debug.Start();
+}
+
