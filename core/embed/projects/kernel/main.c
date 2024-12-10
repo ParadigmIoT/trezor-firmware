@@ -36,6 +36,13 @@
 #include <util/option_bytes.h>
 #include <util/rsod.h>
 #include <util/unit_properties.h>
+
+#include "ble.h"
+#include <io/button.h>
+#include <sec/consumption_mask.h>
+#include "dma2d_bitblt.h"
+#include <io/haptic.h>
+#include <sys/irq.h>
 #include "memzero.h"
 
 #ifdef USE_BUTTON
@@ -175,6 +182,10 @@ void drivers_init() {
 
 #ifdef USE_HAPTIC
   haptic_init();
+#endif
+
+#ifdef USE_BLE
+  ble_init();
 #endif
 
 #ifdef USE_OPTIGA

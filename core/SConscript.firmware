@@ -39,7 +39,7 @@ FEATURE_FLAGS = {
     "SYSTEM_VIEW": True
 }
 
-FEATURES_WANTED = ["input", "sd_card", "rgb_led", "dma2d", "consumption_mask", "usb" ,"optiga", "haptic"]
+FEATURES_WANTED = ["input", "sbu", "sd_card", "rgb_led", "dma2d", "consumption_mask", "usb" ,"optiga", "haptic", "ble"]
 if DISABLE_OPTIGA:
     if PYOPT != '0':
         raise RuntimeError("DISABLE_OPTIGA requires PYOPT=0")

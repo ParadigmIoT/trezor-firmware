@@ -113,16 +113,14 @@ class Transport:
 
 
 def all_transports() -> Iterable[Type["Transport"]]:
-    from .bridge import BridgeTransport
-    from .hid import HidTransport
-    from .udp import UdpTransport
-    from .webusb import WebUsbTransport
+    from .ble import BleTransport
 
     transports: Tuple[Type["Transport"], ...] = (
-        BridgeTransport,
-        HidTransport,
-        UdpTransport,
-        WebUsbTransport,
+        # BridgeTransport,
+        # HidTransport,
+        # UdpTransport,
+        # WebUsbTransport,
+        BleTransport,
     )
     return set(t for t in transports if t.ENABLED)
 

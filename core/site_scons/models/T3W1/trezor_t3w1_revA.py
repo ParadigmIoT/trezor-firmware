@@ -71,17 +71,18 @@ def configure(
         features_available.append("haptic")
         defines += ["USE_HAPTIC=1"]
 
-    # if "ble" in features_wanted:
-    #     sources += ["embed/trezorhal/stm32f4/ble/ble_hal.c"]
-    #     sources += ["embed/trezorhal/stm32f4/ble/dfu.c"]
-    #     sources += ["embed/trezorhal/stm32f4/ble/fwu.c"]
-    #     sources += ["embed/trezorhal/stm32f4/ble/ble.c"]
-    #     sources += ["embed/trezorhal/stm32f4/ble/messages.c"]
-    #     sources += [
-    #         "vendor/micropython/lib/stm32lib/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_uart.c"
-    #     ]
-    #     features_available.append("ble")
-    #     defines += [("USE_BLE", "1")]
+    if "ble" in features_wanted:
+        sources += ["embed/trezorhal/stm32f4/ble/ble.c"]
+
+        sources += ["embed/trezorhal/stm32f4/nrf/nrf.c"]
+        sources += ["embed/trezorhal/stm32f4/nrf/dfu.c"]
+        sources += ["embed/trezorhal/stm32f4/nrf/fwu.c"]
+        sources += ["embed/trezorhal/stm32f4/nrf/crc8.c"]
+        sources += [
+            "vendor/micropython/lib/stm32lib/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_uart.c"
+        ]
+        features_available.append("ble")
+    defines += ["USE_BLE=1"]
 
     if "ble" in features_wanted:
         sources += [

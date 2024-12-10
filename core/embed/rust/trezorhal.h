@@ -9,6 +9,11 @@
 #include <sys/systick.h>
 #include <util/flash.h>
 #include <util/translations.h>
+#include "ble.h"
+#include <io/button.h>
+#include "dma2d_bitblt.h"
+#include <io/haptic.h>
+#include <io/rgb_led.h>
 #include "storage.h"
 
 #ifdef USE_BUTTON

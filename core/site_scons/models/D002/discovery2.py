@@ -70,6 +70,24 @@ def configure(
         ]
         features_available.append("usb")
         paths += ["embed/io/usb/inc"]
+    
+    if "ble" in features_wanted:
+        sources += ["embed/trezorhal/stm32f4/ble/ble.c"]
+
+        sources += ["embed/trezorhal/stm32f4/nrf/nrf.c"]
+        sources += ["embed/trezorhal/stm32f4/nrf/dfu.c"]
+        sources += ["embed/trezorhal/stm32f4/nrf/fwu.c"]
+        sources += ["embed/trezorhal/stm32f4/nrf/crc8.c"]
+        sources += [
+            "vendor/stm32u5xx_hal_driver/Src/stm32u5xx_hal_uart.c"
+        ]
+        features_available.append("ble")
+        defines += ["USE_BLE=1"]
+        
+    if "ble" in features_wanted or "sd_card" in features_wanted:
+        sources += [
+            "vendor/stm32u5xx_hal_driver/Src/stm32u5xx_hal_dma.c"
+        ]
 
     defines += [
         "USE_DMA2D",
