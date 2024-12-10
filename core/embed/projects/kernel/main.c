@@ -38,10 +38,7 @@
 #include <util/unit_properties.h>
 
 #include <io/ble.h>
-#include <io/button.h>
-#include <sec/consumption_mask.h>
 #include <gfx/dma2d_bitblt.h>
-#include <io/haptic.h>
 #include <sys/irq.h>
 #include "memzero.h"
 

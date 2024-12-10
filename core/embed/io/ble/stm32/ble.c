@@ -21,12 +21,13 @@
 
 #include <trezor_rtl.h>
 
-#include "systimer.h"
+#include <sys/systimer.h>
 
 #include <io/ble.h>
-#include "ble_comm_defs.h"
-#include "nrf/nrf.h"
-#include "tsqueue/tsqueue.h"
+#include <io/ble_comm_defs.h>
+#include <io/nrf.h>
+#include <io/nrf.h>
+#include <sys/tsqueue.h>
 
 typedef enum {
   BLE_MODE_OFF,

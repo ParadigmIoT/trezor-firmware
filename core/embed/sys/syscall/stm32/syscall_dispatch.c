@@ -38,14 +38,11 @@
 #include <util/fwutils.h>
 #include <util/translations.h>
 #include <util/unit_properties.h>
+#include <io/ble.h>
 
 #ifdef USE_BUTTON
 #include <io/button.h>
 #endif
-#include <io/ble.h>
-#include <io/button.h>
-#include <io/haptic.h>
-#include "mpu.h"
 
 #ifdef USE_HAPTIC
 #include <io/haptic.h>

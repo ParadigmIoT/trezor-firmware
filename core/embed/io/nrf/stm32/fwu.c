@@ -30,7 +30,7 @@
 
 #include <trezor_rtl.h>
 
-#include "fwu.h"
+#include <io/fwu.h>
 
 // TODO too big, split in separate files!
 

@@ -19,11 +19,11 @@
 
 #ifdef KERNEL_MODE
 
-#include "dfu.h"
+#include <io/dfu.h>
 #include "common.h"
-#include "fwu.h"
-#include "nrf.h"
-#include "nrf_internal.h"
+#include <io/fwu.h>
+#include <io/nrf.h>
+#include <io/nrf_internal.h>
 
 static TFwu sFwu;
 

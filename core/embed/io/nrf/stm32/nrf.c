@@ -22,13 +22,13 @@
 #include <trezor_bsp.h>
 #include <trezor_rtl.h>
 
-#include "tsqueue/tsqueue.h"
+#include <sys/tsqueue.h>
 
-#include "crc8.h"
-#include "irq.h"
-#include "mpu.h"
-#include "nrf.h"
-#include "nrf_internal.h"
+#include <io/crc8.h>
+#include <sys/irq.h>
+#include <sys/mpu.h>
+#include <io/nrf.h>
+#include <io/nrf_internal.h>
 
 #define MAX_SPI_DATA_SIZE (244)
 
