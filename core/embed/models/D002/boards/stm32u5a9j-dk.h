@@ -28,4 +28,11 @@
 
 #define TOUCH_I2C_INSTANCE 0
 
+#define GPIO_1_PORT GPIOC
+#define GPIO_1_PIN GPIO_PIN_1
+#define GPIO_2_PORT GPIOC
+#define GPIO_2_PIN GPIO_PIN_6
+#define GPIO_3_PORT GPIOC
+#define GPIO_3_PIN GPIO_PIN_7
+
 #endif  // STM32U5A9J_DK_H_

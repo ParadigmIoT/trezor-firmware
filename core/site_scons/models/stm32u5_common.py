@@ -83,6 +83,7 @@ def stm32u5_common_files(env, defines, sources, paths):
         "embed/trezorhal/stm32u5/trustzone.c",
         "embed/trezorhal/stm32u5/unit_properties.c",
         "embed/trezorhal/stm32u5/vectortable.S",
+        "embed/trezorhal/stm32u5/tsqueue/tsqueue.c",
     ]
 
     # boardloader needs separate assembler for some function unencumbered by various FW+bootloader hacks
