@@ -648,7 +648,7 @@ secbool firmware_calc_hash(const uint8_t *challenge, size_t challenge_len,
 // ble.h
 // =============================================================================
 
-#include "ble.h"
+#include <io/ble.h>
 
 void ble_start(void) { syscall_invoke0(SYSCALL_BLE_START); }
 

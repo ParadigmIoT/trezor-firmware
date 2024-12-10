@@ -143,7 +143,10 @@ ALLPATHS = [
         'embed/util/image/inc',
         'embed/util/rsod/inc',
         'embed/upymod/modtrezorui',
+        'embed/sys/tsqueue/inc',
         'vendor/nanopb',
+        'embed/io/ble/inc',
+        'embed/io/button/inc',
     ] + CPPPATH_MOD + PATH_HAL
 
 env.Replace(

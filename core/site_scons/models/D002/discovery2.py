@@ -44,6 +44,10 @@ def configure(
         "embed/io/display/stm32u5a9j-dk/display_ltdc_dsi.c",
     ]
     paths += ["embed/io/display/inc"]
+    paths += ["embed/io/haptic/inc"]
+    paths += ["embed/sys/tsqueue/inc"]
+    paths += ["embed/sys/tsqueue/inc"]
+    paths += ["embed/sys/tsqueue/inc"]
 
     if "input" in features_wanted:
         sources += ["embed/io/i2c_bus/stm32u5/i2c_bus.c"]
@@ -72,19 +76,22 @@ def configure(
         paths += ["embed/io/usb/inc"]
     
     if "ble" in features_wanted:
-        sources += ["embed/trezorhal/stm32f4/ble/ble.c"]
+        sources += ["embed/io/ble/stm32/ble.c"]
+        paths += ["embed/io/ble/inc"]
 
-        sources += ["embed/trezorhal/stm32f4/nrf/nrf.c"]
-        sources += ["embed/trezorhal/stm32f4/nrf/dfu.c"]
-        sources += ["embed/trezorhal/stm32f4/nrf/fwu.c"]
-        sources += ["embed/trezorhal/stm32f4/nrf/crc8.c"]
+        sources += ["embed/io/nrf/stm32/nrf.c"]
+        sources += ["embed/io/nrf/stm32/dfu.c"]
+        sources += ["embed/io/nrf/stm32/fwu.c"]
+        sources += ["embed/io/nrf/stm32/crc8.c"]
         sources += [
             "vendor/stm32u5xx_hal_driver/Src/stm32u5xx_hal_uart.c"
         ]
+        paths += ["embed/io/nrf/inc"]
+        paths += ["embed/sys/tsqueue/inc"]
         features_available.append("ble")
         defines += ["USE_BLE=1"]
         
-    if "ble" in features_wanted or "sd_card" in features_wanted:
+    # if "ble" in features_wanted or "sd_card" in features_wanted:
         sources += [
             "vendor/stm32u5xx_hal_driver/Src/stm32u5xx_hal_dma.c"
         ]

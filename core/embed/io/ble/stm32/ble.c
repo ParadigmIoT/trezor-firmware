@@ -23,7 +23,7 @@
 
 #include "systimer.h"
 
-#include "ble.h"
+#include <io/ble.h>
 #include "ble_comm_defs.h"
 #include "nrf/nrf.h"
 #include "tsqueue/tsqueue.h"

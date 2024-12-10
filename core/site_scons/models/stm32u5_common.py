@@ -86,7 +86,7 @@ def stm32u5_common_files(env, defines, sources, paths):
         "embed/sys/pvd/stm32/pvd.c",
         "embed/sys/startup/stm32/bootutils.c",
         "embed/sys/startup/stm32u5/reset_flags.c",
-        "embed/sys/startup/stm32u5/tsqueue/tsqueue.c",
+        "embed/sys/tsqueue/stm32/tsqueue.c",
         "embed/sys/startup/stm32u5/startup_init.c",
         "embed/sys/startup/stm32u5/vectortable.S",
         "embed/sys/syscall/stm32/syscall.c",

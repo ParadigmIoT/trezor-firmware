@@ -19,8 +19,8 @@
 
 #include <trezor_rtl.h>
 
-#include "irq.h"
-#include "tsqueue.h"
+#include <sys/irq.h>
+#include <sys/tsqueue.h>
 
 // Initialize the queue
 void tsqueue_init(tsqueue_t *queue, tsqueue_entry_t *entries,

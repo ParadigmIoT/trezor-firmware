@@ -22,7 +22,7 @@
 
 #include <io/display.h>
 #include <sys/systick.h>
-#include "ble.h"
+#include <io/ble.h>
 #include <io/button.h>
 
 #ifdef USE_BUTTON

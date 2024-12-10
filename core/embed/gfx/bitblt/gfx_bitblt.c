@@ -17,7 +17,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "dma2d_bitblt.h"
+#include <gfx/dma2d_bitblt.h>
 
 void gfx_bitblt_init(void) {
 #if defined(USE_DMA2D) && !defined(TREZOR_EMULATOR)

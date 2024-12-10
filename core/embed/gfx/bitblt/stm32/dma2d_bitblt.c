@@ -22,7 +22,7 @@
 
 #include <gfx/gfx_color.h>
 
-#include "../dma2d_bitblt.h"
+#include <gfx/dma2d_bitblt.h>
 
 static DMA2D_HandleTypeDef dma2d_handle = {
     .Instance = (DMA2D_TypeDef*)DMA2D_BASE,

@@ -183,7 +183,7 @@ secbool firmware_calc_hash__verified(const uint8_t *challenge,
 secbool firmware_get_vendor__verified(char *buff, size_t buff_size);
 
 // ---------------------------------------------------------------------
-#include "ble.h"
+#include <io/ble.h>
 void ble_get_state__verified(ble_state_t *state);
 
 bool ble_read_event__verified(ble_event_t *event);

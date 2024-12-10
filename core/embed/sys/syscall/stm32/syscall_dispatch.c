@@ -42,7 +42,7 @@
 #ifdef USE_BUTTON
 #include <io/button.h>
 #endif
-#include "ble.h"
+#include <io/ble.h>
 #include <io/button.h>
 #include <io/haptic.h>
 #include "mpu.h"
