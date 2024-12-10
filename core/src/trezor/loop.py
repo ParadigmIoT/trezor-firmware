@@ -116,6 +116,7 @@ def run() -> None:
 
         if io.poll(_paused, msg_entry, delay):
             # message received, run tasks paused on the interface
+            log.debug(__name__, "msg: %s", msg_entry)
             msg_tasks = _paused.pop(msg_entry[0], ())
             for task in msg_tasks:
                 _step(task, msg_entry[1])

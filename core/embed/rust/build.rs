@@ -41,6 +41,7 @@ const DEFAULT_BINDGEN_MACROS_COMMON: &[&str] = &[
     "-I../io/touch/inc",
     "-I../io/rgb_led/inc",
     "-I../io/usb/inc",
+    "-I../io/uart/inc",
     "-I../sec/entropy/inc",
     "-I../sys/time/inc",
     "-I../util/flash/inc",

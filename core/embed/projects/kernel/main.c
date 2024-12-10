@@ -37,6 +37,7 @@
 #include <util/rsod.h>
 #include <util/unit_properties.h>
 #include "memzero.h"
+#include <io/uart.h>
 
 #ifdef USE_BUTTON
 #include <io/button.h>

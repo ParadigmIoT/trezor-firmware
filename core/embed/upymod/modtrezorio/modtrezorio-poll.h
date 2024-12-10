@@ -33,6 +33,7 @@
 #include "SDL.h"
 #endif
 
+#define USART_IFACE (252)
 #define USB_DATA_IFACE (253)
 #define BUTTON_IFACE (254)
 #define TOUCH_IFACE (255)
@@ -146,6 +147,9 @@ STATIC mp_obj_t mod_trezorio_poll(mp_obj_t ifaces, mp_obj_t list_ref,
           ret->items[1] = usb_connected ? mp_const_true : mp_const_false;
           return mp_const_true;
         }
+      }
+      else if (iface == USART_IFACE) {
+        
       }
 #if USE_BUTTON
       else if (iface == BUTTON_IFACE) {

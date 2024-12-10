@@ -125,6 +125,7 @@ env.Replace(
         'embed/io/haptic/inc',
         'embed/io/touch/inc',
         'embed/io/usb/inc',
+        'embed/io/uart/inc',
         'embed/sys/bsp/inc',
         'embed/util/image/inc',
         'embed/util/rsod/inc',

@@ -44,6 +44,9 @@ def configure(
         "embed/io/display/stm32u5a9j-dk/display_ltdc_dsi.c",
     ]
     paths += ["embed/io/display/inc"]
+    
+    sources += ["embed/io/uart/stm32/uart.c"]
+    paths += ["embed/io/uart/inc"]
 
     if "input" in features_wanted:
         sources += ["embed/io/i2c_bus/stm32u5/i2c_bus.c"]
