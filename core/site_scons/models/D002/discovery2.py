@@ -90,11 +90,14 @@ def configure(
         paths += ["embed/sys/tsqueue/inc"]
         features_available.append("ble")
         defines += ["USE_BLE=1"]
-        
-    # if "ble" in features_wanted or "sd_card" in features_wanted:
+
         sources += [
             "vendor/stm32u5xx_hal_driver/Src/stm32u5xx_hal_dma.c"
         ]
+        defines += ["USE_BUTTON=1"]
+        sources += ["embed/io/button/stm32/button.c"]
+        paths += ["embed/io/button/inc"]
+        features_available.append("button")
 
     defines += [
         "USE_DMA2D",

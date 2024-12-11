@@ -11,8 +11,6 @@
 #include <util/flash.h>
 #include <util/translations.h>
 #include <io/ble.h>
-#include <io/button.h>
-#include <io/haptic.h>
 #include "storage.h"
 
 #ifdef USE_BUTTON

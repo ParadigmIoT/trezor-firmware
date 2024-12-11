@@ -44,7 +44,7 @@ typedef struct {
 static button_driver_t g_button_driver = {
     .initialized = false,
 };
-
+static void button_setup_pin(GPIO_TypeDef *port, uint16_t pin) __attribute__((unused));
 static void button_setup_pin(GPIO_TypeDef *port, uint16_t pin) {
   GPIO_InitTypeDef GPIO_InitStructure = {0};
 
