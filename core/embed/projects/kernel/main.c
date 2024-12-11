@@ -104,6 +104,9 @@ static void optiga_log_hex(const char *prefix, const uint8_t *data,
 #endif
 #endif
 
+// Global UART handle
+static USART_HandleTypeDef g_husart3;
+
 void drivers_init() {
 #ifdef USE_TAMPER
   tamper_init();
@@ -130,6 +133,15 @@ void drivers_init() {
   gfx_bitblt_init();
 
   display_init(DISPLAY_JUMP_BEHAVIOR);
+
+  g_husart3 = MX_USART3_UART_Init();
+  if (HAL_USART_Init(&g_husart3) != HAL_OK) {
+    error_shutdown("Cannot initialize UART3");
+  }
+  
+  // Send test message
+  const uint8_t test_msg[] = "UART Test Message\r\n";
+  uart_send_message(&g_husart3, (uint8_t*)test_msg, sizeof(test_msg) - 1);
 
 #ifdef USE_OEM_KEYS_CHECK
   check_oem_keys();
