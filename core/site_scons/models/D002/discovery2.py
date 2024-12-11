@@ -83,19 +83,13 @@ def configure(
         sources += ["embed/io/nrf/stm32/dfu.c"]
         sources += ["embed/io/nrf/stm32/fwu.c"]
         sources += ["embed/io/nrf/stm32/crc8.c"]
-        sources += [
-            "vendor/stm32u5xx_hal_driver/Src/stm32u5xx_hal_uart.c"
-        ]
+        sources += ["embed/io/button/stm32/button.c"]
+
         paths += ["embed/io/nrf/inc"]
         paths += ["embed/sys/tsqueue/inc"]
         features_available.append("ble")
         defines += ["USE_BLE=1"]
-
-        sources += [
-            "vendor/stm32u5xx_hal_driver/Src/stm32u5xx_hal_dma.c"
-        ]
         defines += ["USE_BUTTON=1"]
-        sources += ["embed/io/button/stm32/button.c"]
         paths += ["embed/io/button/inc"]
         features_available.append("button")
 
