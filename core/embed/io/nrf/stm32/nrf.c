@@ -137,8 +137,7 @@ void nrf_init(void) {
   }
 
   __HAL_RCC_USART1_CLK_ENABLE();
-  __HAL_RCC_DMA1_CLK_ENABLE();
-  __HAL_RCC_DMA2_CLK_ENABLE();
+  __HAL_RCC_GPDMA1_CLK_ENABLE();
   __HAL_RCC_SPI2_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
   __HAL_RCC_GPIOC_CLK_ENABLE();
@@ -178,11 +177,15 @@ void nrf_init(void) {
   GPIO_InitStructure.Pin = GPIO_3_PIN;
   HAL_GPIO_Init(GPIO_3_PORT, &GPIO_InitStructure);
 
-  GPIO_InitStructure.Pin = GPIO_PIN_9 | GPIO_PIN_10 | GPIO_PIN_11 | GPIO_PIN_12;
+// UART communication - setup UART3 rts (pb1), tx (pb10), and rx (pb11)
+  GPIO_InitStructure.Pin = GPIO_PIN_1 | GPIO_PIN_10 | GPIO_PIN_11;
   GPIO_InitStructure.Mode = GPIO_MODE_AF_PP;
   GPIO_InitStructure.Pull = GPIO_NOPULL;
-  GPIO_InitStructure.Alternate = GPIO_AF7_USART1;
+  GPIO_InitStructure.Alternate = GPIO_AF7_USART3;
   GPIO_InitStructure.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStructure);
+// UART communication - setup UART3 cts (pa6)
+  GPIO_InitStructure.Pin = GPIO_PIN_6;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStructure);
 
   drv->urt.Init.Mode = UART_MODE_TX_RX;
@@ -192,7 +195,7 @@ void nrf_init(void) {
   drv->urt.Init.Parity = UART_PARITY_NONE;
   drv->urt.Init.StopBits = UART_STOPBITS_1;
   drv->urt.Init.WordLength = UART_WORDLENGTH_8B;
-  drv->urt.Instance = USART1;
+  drv->urt.Instance = USART3;
   drv->urt.hdmatx = &drv->urt_tx_dma;
 
   drv->urt_tx_dma.Init.Channel = DMA_CHANNEL_4;
@@ -218,15 +221,14 @@ void nrf_init(void) {
   NVIC_SetPriority(USART1_IRQn, IRQ_PRI_NORMAL);
   NVIC_EnableIRQ(USART1_IRQn);
 
+// setup SPI2 nss (pb13), sck (pb13), mosi (pd4), and miso (pd3)
   GPIO_InitStructure.Mode = GPIO_MODE_AF_PP;
   GPIO_InitStructure.Pull = GPIO_NOPULL;
   GPIO_InitStructure.Alternate = GPIO_AF5_SPI2;
   GPIO_InitStructure.Speed = GPIO_SPEED_FREQ_MEDIUM;
-  GPIO_InitStructure.Pin = GPIO_PIN_2 | GPIO_PIN_3;
-  HAL_GPIO_Init(GPIOC, &GPIO_InitStructure);
-  GPIO_InitStructure.Pin = GPIO_PIN_9;
+  GPIO_InitStructure.Pin = GPIO_PIN_12 | GPIO_PIN_13;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStructure);
-  GPIO_InitStructure.Pin = GPIO_PIN_3;
+  GPIO_InitStructure.Pin = GPIO_PIN_3 | GPIO_PIN_4;
   HAL_GPIO_Init(GPIOD, &GPIO_InitStructure);
 
   drv->spi_dma.Init.Channel = DMA_CHANNEL_0;
