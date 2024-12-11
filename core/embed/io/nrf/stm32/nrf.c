@@ -136,11 +136,11 @@ void nrf_init(void) {
     return;
   }
 
-  __HAL_RCC_USART1_CLK_ENABLE();
+  __HAL_RCC_USART3_CLK_ENABLE();
   __HAL_RCC_GPDMA1_CLK_ENABLE();
   __HAL_RCC_SPI2_CLK_ENABLE();
+  __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
-  __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
 
   memset(drv, 0, sizeof(*drv));
@@ -198,28 +198,31 @@ void nrf_init(void) {
   drv->urt.Instance = USART3;
   drv->urt.hdmatx = &drv->urt_tx_dma;
 
-  drv->urt_tx_dma.Init.Channel = DMA_CHANNEL_4;
+  // UART DMA Configuration - Updated for STM32U5 GPDMA
+  drv->urt_tx_dma.Init.Request = GPDMA1_REQUEST_USART1_TX;
   drv->urt_tx_dma.Init.Direction = DMA_MEMORY_TO_PERIPH;
-  drv->urt_tx_dma.Init.PeriphInc = DMA_PINC_DISABLE;
-  drv->urt_tx_dma.Init.MemInc = DMA_MINC_ENABLE;
-  drv->urt_tx_dma.Init.PeriphDataAlignment = DMA_PDATAALIGN_BYTE;
-  drv->urt_tx_dma.Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
-  drv->urt_tx_dma.Init.Mode = DMA_NORMAL;
-  drv->urt_tx_dma.Init.Priority = DMA_PRIORITY_LOW;
-  drv->urt_tx_dma.Init.FIFOMode = DMA_FIFOMODE_DISABLE;
-  drv->urt_tx_dma.Init.FIFOThreshold = DMA_FIFO_THRESHOLD_FULL;
-  drv->urt_tx_dma.Init.MemBurst = DMA_MBURST_SINGLE;
-  drv->urt_tx_dma.Init.PeriphBurst = DMA_PBURST_SINGLE;
-  drv->urt_tx_dma.Instance = DMA2_Stream7;
+  drv->urt_tx_dma.Init.SrcInc = DMA_SINC_INCREMENTED;
+  drv->urt_tx_dma.Init.DestInc = DMA_DINC_FIXED;
+  drv->urt_tx_dma.Init.SrcDataWidth = DMA_SRC_DATAWIDTH_BYTE;
+  drv->urt_tx_dma.Init.DestDataWidth = DMA_DEST_DATAWIDTH_BYTE;
+  drv->urt_tx_dma.Init.Priority = DMA_LOW_PRIORITY_LOW_WEIGHT;
+  drv->urt_tx_dma.Init.SrcBurstLength = 1;
+  drv->urt_tx_dma.Init.DestBurstLength = 1;
+  drv->urt_tx_dma.Init.TransferAllocatedPort = DMA_SRC_ALLOCATED_PORT0|DMA_DEST_ALLOCATED_PORT1;
+  drv->urt_tx_dma.Instance = GPDMA1_Channel7;
   drv->urt_tx_dma.Parent = &drv->urt;
   HAL_DMA_Init(&drv->urt_tx_dma);
 
   HAL_UART_Init(&drv->urt);
+  
+  // __HAL_LINKDMA(drv->urt, hdmatx, drv->urt_tx_dma);
 
-  NVIC_SetPriority(DMA2_Stream7_IRQn, IRQ_PRI_NORMAL);
-  NVIC_EnableIRQ(DMA2_Stream7_IRQn);
-  NVIC_SetPriority(USART1_IRQn, IRQ_PRI_NORMAL);
-  NVIC_EnableIRQ(USART1_IRQn);
+  // HAL_DMA_ConfigChannelAttributes(&(drv->urt_tx_dma), DMA_CHANNEL_NPRIV)
+
+  NVIC_SetPriority(GPDMA1_Channel7_IRQn, IRQ_PRI_NORMAL); // Updated IRQ
+  NVIC_EnableIRQ(GPDMA1_Channel7_IRQn);
+  NVIC_SetPriority(USART3_IRQn, IRQ_PRI_NORMAL);
+  NVIC_EnableIRQ(USART3_IRQn);
 
 // setup SPI2 nss (pb13), sck (pb13), mosi (pd4), and miso (pd3)
   GPIO_InitStructure.Mode = GPIO_MODE_AF_PP;
@@ -231,19 +234,18 @@ void nrf_init(void) {
   GPIO_InitStructure.Pin = GPIO_PIN_3 | GPIO_PIN_4;
   HAL_GPIO_Init(GPIOD, &GPIO_InitStructure);
 
-  drv->spi_dma.Init.Channel = DMA_CHANNEL_0;
+  // SPI DMA Configuration - Updated for STM32U5 GPDMA
+  drv->spi_dma.Init.Request = GPDMA1_REQUEST_SPI2_RX;
   drv->spi_dma.Init.Direction = DMA_PERIPH_TO_MEMORY;
-  drv->spi_dma.Init.PeriphInc = DMA_PINC_DISABLE;
-  drv->spi_dma.Init.MemInc = DMA_MINC_ENABLE;
-  drv->spi_dma.Init.PeriphDataAlignment = DMA_PDATAALIGN_BYTE;
-  drv->spi_dma.Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
-  drv->spi_dma.Init.Mode = DMA_NORMAL;
-  drv->spi_dma.Init.Priority = DMA_PRIORITY_LOW;
-  drv->spi_dma.Init.FIFOMode = DMA_FIFOMODE_DISABLE;
-  drv->spi_dma.Init.FIFOThreshold = DMA_FIFO_THRESHOLD_FULL;
-  drv->spi_dma.Init.MemBurst = DMA_MBURST_SINGLE;
-  drv->spi_dma.Init.PeriphBurst = DMA_PBURST_SINGLE;
-  drv->spi_dma.Instance = DMA1_Stream3;
+  drv->spi_dma.Init.SrcInc = DMA_SINC_FIXED;
+  drv->spi_dma.Init.DestInc = DMA_DINC_INCREMENTED;
+  drv->spi_dma.Init.SrcDataWidth = DMA_SRC_DATAWIDTH_BYTE;
+  drv->spi_dma.Init.DestDataWidth = DMA_DEST_DATAWIDTH_BYTE;
+  drv->spi_dma.Init.Priority = DMA_LOW_PRIORITY_LOW_WEIGHT;
+  drv->spi_dma.Init.SrcBurstLength = 1;
+  drv->spi_dma.Init.DestBurstLength = 1;
+  drv->spi_dma.Init.TransferAllocatedPort = DMA_SRC_ALLOCATED_PORT0|DMA_DEST_ALLOCATED_PORT1;
+  drv->spi_dma.Instance = GPDMA1_Channel3;
   HAL_DMA_Init(&drv->spi_dma);
 
   drv->spi.Instance = SPI2;
@@ -264,8 +266,8 @@ void nrf_init(void) {
 
   HAL_SPI_Init(&drv->spi);
 
-  NVIC_SetPriority(DMA1_Stream3_IRQn, IRQ_PRI_NORMAL);
-  NVIC_EnableIRQ(DMA1_Stream3_IRQn);
+  NVIC_SetPriority(GPDMA1_Channel3_IRQn, IRQ_PRI_NORMAL); // Updated IRQ
+  NVIC_EnableIRQ(GPDMA1_Channel3_IRQn);
 
   drv->initialized = true;
 
@@ -544,8 +546,7 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *urt) {
 }
 
 void USART1_IRQHandler(void) {
-  IRQ_ENTER(USART1_IRQn);
-
+  IRQ_LOG_ENTER();
   mpu_mode_t mpu_mode = mpu_reconfig(MPU_MODE_DEFAULT);
 
   nrf_driver_t *drv = &g_nrf_driver;
@@ -555,12 +556,11 @@ void USART1_IRQHandler(void) {
 
   mpu_restore(mpu_mode);
 
-  IRQ_EXIT(USART1_IRQn);
+  IRQ_LOG_EXIT();
 }
 
-void DMA2_Stream7_IRQHandler(void) {
-  IRQ_ENTER(DMA2_Stream7_IRQn);
-
+void GPDMA1_Channel7_IRQHandler(void) {
+  IRQ_LOG_ENTER();
   mpu_mode_t mpu_mode = mpu_reconfig(MPU_MODE_DEFAULT);
 
   nrf_driver_t *drv = &g_nrf_driver;
@@ -570,7 +570,7 @@ void DMA2_Stream7_IRQHandler(void) {
 
   mpu_restore(mpu_mode);
 
-  IRQ_EXIT(DMA2_Stream7_IRQn);
+  IRQ_LOG_EXIT();
 }
 
 /// SPI communication
@@ -588,8 +588,7 @@ static bool start_spi_dma(nrf_driver_t *drv) {
 }
 
 void DMA1_Stream3_IRQHandler(void) {
-  IRQ_ENTER(DMA1_Stream3_IRQn);
-
+  IRQ_LOG_ENTER();
   mpu_mode_t mpu_mode = mpu_reconfig(MPU_MODE_DEFAULT);
 
   nrf_driver_t *drv = &g_nrf_driver;
@@ -599,7 +598,7 @@ void DMA1_Stream3_IRQHandler(void) {
 
   mpu_restore(mpu_mode);
 
-  IRQ_EXIT(DMA1_Stream3_IRQn);
+  IRQ_LOG_EXIT();
 }
 
 void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi) {
