@@ -142,6 +142,7 @@ void nrf_init(void) {
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
+  __HAL_RCC_GPIOE_CLK_ENABLE();
 
   memset(drv, 0, sizeof(*drv));
   tsqueue_init(&drv->urt_tx_queue, drv->urt_tx_queue_entries,
@@ -154,28 +155,28 @@ void nrf_init(void) {
   GPIO_InitStructure.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStructure.Pull = GPIO_PULLDOWN;
   GPIO_InitStructure.Speed = GPIO_SPEED_FREQ_LOW;
-  GPIO_InitStructure.Pin = GPIO_PIN_12;
-  HAL_GPIO_Init(GPIOB, &GPIO_InitStructure);
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_RESET);
+  GPIO_InitStructure.Pin = GPIO_PIN_4;
+  HAL_GPIO_Init(GPIOE, &GPIO_InitStructure);
+  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_4, GPIO_PIN_RESET);
 
   GPIO_InitStructure.Mode = GPIO_MODE_INPUT;
   GPIO_InitStructure.Pull = GPIO_PULLDOWN;
   GPIO_InitStructure.Speed = GPIO_SPEED_FREQ_LOW;
-  GPIO_InitStructure.Pin = GPIO_1_PIN;
-  HAL_GPIO_Init(GPIO_1_PORT, &GPIO_InitStructure);
+  GPIO_InitStructure.Pin = GPIO_PIN_5;
+  HAL_GPIO_Init(GPIOE, &GPIO_InitStructure);
 
   GPIO_InitStructure.Mode = GPIO_MODE_INPUT;
   GPIO_InitStructure.Pull = GPIO_PULLDOWN;
   GPIO_InitStructure.Alternate = 0;
   GPIO_InitStructure.Speed = GPIO_SPEED_FREQ_LOW;
-  GPIO_InitStructure.Pin = GPIO_2_PIN;
-  HAL_GPIO_Init(GPIO_2_PORT, &GPIO_InitStructure);
+  GPIO_InitStructure.Pin = GPIO_PIN_6;
+  HAL_GPIO_Init(GPIOE, &GPIO_InitStructure);
 
   GPIO_InitStructure.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStructure.Pull = GPIO_PULLDOWN;
   GPIO_InitStructure.Speed = GPIO_SPEED_FREQ_LOW;
-  GPIO_InitStructure.Pin = GPIO_3_PIN;
-  HAL_GPIO_Init(GPIO_3_PORT, &GPIO_InitStructure);
+  GPIO_InitStructure.Pin = GPIO_PIN_2;
+  HAL_GPIO_Init(GPIOE, &GPIO_InitStructure);
 
 // UART communication - setup UART3 rts (pb1), tx (pb10), and rx (pb11)
   GPIO_InitStructure.Pin = GPIO_PIN_1 | GPIO_PIN_10 | GPIO_PIN_11;
