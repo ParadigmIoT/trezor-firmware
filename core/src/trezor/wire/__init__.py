@@ -32,60 +32,15 @@ from . import message_handler, protocol_common
 from .codec.codec_context import CodecContext
 from .context import UnexpectedMessageException
 from .message_handler import failure
+from trezor.messages import Failure
 
 # Import all errors into namespace, so that `wire.Error` is available from
 # other packages.
 from .errors import *  # isort:skip # noqa: F401,F403
 
+# _PROTOBUF_BUFFER_SIZE = const(8192)
 
-if TYPE_CHECKING:
-    from trezorio import WireInterface
-    from typing import Any, Callable, Container, Coroutine, TypeVar
-
-    Msg = TypeVar("Msg", bound=protobuf.MessageType)
-    HandlerTask = Coroutine[Any, Any, protobuf.MessageType]
-    Handler = Callable[[Msg], HandlerTask]
-    Filter = Callable[[int, Handler], Handler]
-
-    LoadedMessageType = TypeVar("LoadedMessageType", bound=protobuf.MessageType)
-
-
-# If set to False protobuf messages marked with "experimental_message" option are rejected.
-EXPERIMENTAL_ENABLED = False
-
-
-def setup(
-    iface: WireInterface, buffer: bytearray, mutex=None
-) -> None:
-    """Initialize the wire stack on passed USB interface."""
-    loop.schedule(
-        handle_session(iface, codec_v1.SESSION_ID, buffer, mutex)
-    )
-
-
-def wrap_protobuf_load(
-    buffer: bytes,
-    expected_type: type[LoadedMessageType],
-) -> LoadedMessageType:
-    try:
-        msg = protobuf.decode(buffer, expected_type, EXPERIMENTAL_ENABLED)
-        if __debug__ and utils.EMULATOR:
-            log.debug(
-                __name__, "received message contents:\n%s", utils.dump_protobuf(msg)
-            )
-        return msg
-    except Exception as e:
-        if __debug__:
-            log.exception(__name__, e)
-        if e.args:
-            raise DataError("Failed to decode message: " + " ".join(e.args))
-        else:
-            raise DataError("Failed to decode message")
-
-
-_PROTOBUF_BUFFER_SIZE = const(8192)
-
-WIRE_BUFFER = bytearray(_PROTOBUF_BUFFER_SIZE)
+# WIRE_BUFFER = bytearray(_PROTOBUF_BUFFER_SIZE)
 
 if TYPE_CHECKING:
     from trezorio import WireInterface
@@ -97,20 +52,21 @@ if TYPE_CHECKING:
 
     LoadedMessageType = TypeVar("LoadedMessageType", bound=protobuf.MessageType)
 
-
-def setup(iface: WireInterface) -> None:
-    """Initialize the wire stack on the provided WireInterface."""
-    loop.schedule(handle_session(iface))
+def setup(
+    iface: WireInterface, buffer: bytearray, mutex=None
+) -> None:
+    loop.schedule(
+        handle_session(iface, buffer, mutex=mutex)
+    )
 
 
 async def handle_session(
     iface: WireInterface,
-    session_id: int,
     ctx_buffer: bytearray,
     mutex=None,
 ) -> None:
-    ctx = context.Context(iface, session_id, ctx_buffer)
-    next_msg: codec_v1.Message | None = None
+    ctx = CodecContext(iface, ctx_buffer)
+    next_msg: protocol_common.Message | None = None
 
     # Take a mark of modules that are imported at this point, so we can
     # roll back and un-import any others.
@@ -134,7 +90,7 @@ async def handle_session(
                         else:
                             mutex.set_busy(iface.iface_num())
 
-                except codec_v1.CodecError as exc:
+                except protocol_common.WireError as exc:
                     if __debug__:
                         log.exception(__name__, exc)
                     await ctx.write(failure(exc))
