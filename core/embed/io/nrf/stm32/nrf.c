@@ -200,7 +200,7 @@ void nrf_init(void) {
   drv->urt.hdmatx = &drv->urt_tx_dma;
 
   // UART DMA Configuration - Updated for STM32U5 GPDMA
-  drv->urt_tx_dma.Init.Request = GPDMA1_REQUEST_USART1_TX;
+  drv->urt_tx_dma.Init.Request = GPDMA1_REQUEST_USART3_TX;
   drv->urt_tx_dma.Init.Direction = DMA_MEMORY_TO_PERIPH;
   drv->urt_tx_dma.Init.SrcInc = DMA_SINC_INCREMENTED;
   drv->urt_tx_dma.Init.DestInc = DMA_DINC_FIXED;
@@ -546,7 +546,7 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *urt) {
   }
 }
 
-void USART1_IRQHandler(void) {
+void USART3_IRQHandler(void) {
   IRQ_LOG_ENTER();
   mpu_mode_t mpu_mode = mpu_reconfig(MPU_MODE_DEFAULT);
 
