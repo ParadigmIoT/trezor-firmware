@@ -647,7 +647,7 @@ bool nrf_reboot_to_bootloader(void) {
 
   tick_start = HAL_GetTick();
 
-  while (HAL_GPIO_ReadPin(GPIO_1_PORT, GPIO_1_PIN) == GPIO_PIN_RESET) {
+  while (HAL_GPIO_ReadPin(GPIOE, GPIO_PIN_5) == GPIO_PIN_RESET) {
     if (HAL_GetTick() - tick_start > 4000) {
       return false;
     }
@@ -668,15 +668,15 @@ bool nrf_reboot(void) {
 }
 
 void nrf_signal_running(void) {
-  HAL_GPIO_WritePin(GPIO_3_PORT, GPIO_3_PIN, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_2, GPIO_PIN_SET);
 }
 
 void nrf_signal_off(void) {
-  HAL_GPIO_WritePin(GPIO_3_PORT, GPIO_3_PIN, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_2, GPIO_PIN_RESET);
 }
 
 bool nrf_firmware_running(void) {
-  return HAL_GPIO_ReadPin(GPIO_2_PORT, GPIO_2_PIN) != 0;
+  return HAL_GPIO_ReadPin(GPIOE, GPIO_PIN_6) != 0;
 }
 
 bool nrf_is_running(void) {
