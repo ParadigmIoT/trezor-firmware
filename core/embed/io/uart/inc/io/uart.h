@@ -16,8 +16,10 @@
 #define COUNTOF(__BUFFER__)   (sizeof(__BUFFER__) / sizeof(*(__BUFFER__)))
 
 /* Exported functions prototypes ---------------------------------------------*/
-void HAL_USART_MspInit(USART_HandleTypeDef* husart);
-USART_HandleTypeDef MX_USART3_UART_Init(void);
-HAL_StatusTypeDef uart_send_message(USART_HandleTypeDef *husart, uint8_t *data, uint16_t size);
+void HAL_UART_MspInit(UART_HandleTypeDef* huart);
+void HAL_UART_MspDeInit(UART_HandleTypeDef* huart);
+void MX_USART3_UART_Init(void);
+HAL_StatusTypeDef uart_send_message(uint8_t *data, uint16_t size);
+HAL_StatusTypeDef uart_read_message(uint8_t *buffer, uint16_t size);
 
 #endif /* __UART_H */

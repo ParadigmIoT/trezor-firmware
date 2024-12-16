@@ -9,19 +9,20 @@ static void Error_Handler(void)
     for(;;);
 }
 
+static UART_HandleTypeDef g_huart3 = {0};
+
 /**
-* @brief USART MSP Initialization
+* @brief UART MSP Initialization
 * This function configures the hardware resources used in this example
-* @param husart: USART handle pointer
+* @param huart: UART handle pointer
 * @retval None
 */
-void HAL_USART_MspInit(USART_HandleTypeDef* husart)
+void HAL_UART_MspInit(UART_HandleTypeDef* huart)
 {
   GPIO_InitTypeDef GPIO_InitStruct = {0};
   RCC_PeriphCLKInitTypeDef PeriphClkInit = {0};
-  if(husart->Instance==USART3)
+  if(huart->Instance==USART3)
   {
-
   /** Initializes the peripherals clock
   */
     PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_USART3;
@@ -38,8 +39,8 @@ void HAL_USART_MspInit(USART_HandleTypeDef* husart)
 
     GPIO_InitStruct.Pin = GPIO_PIN_10|GPIO_PIN_11;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-    GPIO_InitStruct.Pull = GPIO_PULLDOWN;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
     GPIO_InitStruct.Alternate = GPIO_AF7_USART3;
     HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
@@ -47,20 +48,21 @@ void HAL_USART_MspInit(USART_HandleTypeDef* husart)
 }
 
 /**
-* @brief USART MSP De-Initialization
+* @brief UART MSP De-Initialization
 * This function freeze the hardware resources used in this example
-* @param husart: USART handle pointer
+* @param huart: UART handle pointer
 * @retval None
 */
-void HAL_USART_MspDeInit(USART_HandleTypeDef* husart)
+void HAL_UART_MspDeInit(UART_HandleTypeDef* huart)
 {
-  if(husart->Instance==USART3)
+  if(huart->Instance==USART3)
   {
     /* Peripheral clock disable */
     __HAL_RCC_USART3_CLK_DISABLE();
 
     HAL_GPIO_DeInit(GPIOB, GPIO_PIN_10|GPIO_PIN_11);
   }
+
 }
 
 /**
@@ -68,82 +70,66 @@ void HAL_USART_MspDeInit(USART_HandleTypeDef* husart)
   * @param None
   * @retval None
   */
-USART_HandleTypeDef MX_USART3_UART_Init(void)
+void MX_USART3_UART_Init(void)
 {
-  USART_HandleTypeDef husart3 = {0};  // Initialize to zero
-
-  husart3.Instance = USART3;
-  husart3.Init.BaudRate = 9600;
-  husart3.Init.WordLength = USART_WORDLENGTH_8B;
-  husart3.Init.StopBits = USART_STOPBITS_1;
-  husart3.Init.Parity = USART_PARITY_NONE;
-  husart3.Init.Mode = USART_MODE_TX_RX;
-  husart3.Init.CLKPolarity = USART_POLARITY_LOW;
-  husart3.Init.CLKPhase = USART_PHASE_1EDGE;
-  husart3.Init.CLKLastBit = USART_LASTBIT_ENABLE;
-  husart3.Init.ClockPrescaler = USART_PRESCALER_DIV1;
-  husart3.SlaveMode = USART_SLAVEMODE_ENABLE;
-
-  /* Initialize USART3 */
-  if (HAL_USART_Init(&husart3) != HAL_OK)
+  g_huart3.Instance = USART3;
+  g_huart3.Init.BaudRate = 115200;
+  g_huart3.Init.WordLength = UART_WORDLENGTH_8B;
+  g_huart3.Init.StopBits = UART_STOPBITS_1;
+  g_huart3.Init.Parity = UART_PARITY_NONE;
+  g_huart3.Init.Mode = UART_MODE_TX_RX;
+  g_huart3.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  g_huart3.Init.OverSampling = UART_OVERSAMPLING_16;
+  g_huart3.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
+  g_huart3.Init.ClockPrescaler = UART_PRESCALER_DIV1;
+  g_huart3.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
+  if (HAL_UART_Init(&g_huart3) != HAL_OK)
   {
     Error_Handler();
   }
-
-  /* Configure FIFO thresholds */
-  if (HAL_USARTEx_SetTxFifoThreshold(&husart3, USART_TXFIFO_THRESHOLD_1_8) != HAL_OK)
+  if (HAL_UARTEx_SetTxFifoThreshold(&g_huart3, UART_TXFIFO_THRESHOLD_1_8) != HAL_OK)
   {
     Error_Handler();
   }
-  if (HAL_USARTEx_SetRxFifoThreshold(&husart3, USART_RXFIFO_THRESHOLD_1_8) != HAL_OK)
+  if (HAL_UARTEx_SetRxFifoThreshold(&g_huart3, UART_RXFIFO_THRESHOLD_1_8) != HAL_OK)
   {
     Error_Handler();
   }
-  if (HAL_USARTEx_DisableFifoMode(&husart3) != HAL_OK)
+  if (HAL_UARTEx_DisableFifoMode(&g_huart3) != HAL_OK)
   {
     Error_Handler();
   }
-  if (HAL_USARTEx_EnableSlaveMode(&husart3) != HAL_OK)
-  {
-    Error_Handler();
-  }
-
-  return husart3;
 }
 
 /**
   * @brief  Send data over UART
-  * @param  husart: USART handle pointer
   * @param  data: Pointer to data buffer to send
   * @param  size: Size of data buffer in bytes
   * @retval HAL status
   */
-HAL_StatusTypeDef uart_send_message(USART_HandleTypeDef *husart, uint8_t *data, uint16_t size)
+HAL_StatusTypeDef uart_send_message(uint8_t *data, uint16_t size)
 {
   HAL_StatusTypeDef status;
   
   /* Send data over UART with timeout */
-  status = HAL_USART_Transmit(husart, data, size, HAL_MAX_DELAY);
-  
-  if (status != HAL_OK)
-  {
-    Error_Handler();
-  }
+  status = HAL_UART_Transmit(&g_huart3, data, size, HAL_MAX_DELAY);
   
   return status;
 }
 
-#ifdef  USE_FULL_ASSERT
 /**
-  * @brief  Reports the name of the source file and the source line number
-  *         where the assert_param error has occurred.
-  * @param  file: pointer to the source file name
-  * @param  line: assert_param error line source number
-  * @retval None
+  * @brief  Read data from UART
+  * @param  buffer: Pointer to buffer where received data will be stored
+  * @param  size: Size of data to receive in bytes
+  * @retval HAL status
   */
-void assert_failed(uint8_t *file, uint32_t line)
+HAL_StatusTypeDef uart_read_message(uint8_t *buffer, uint16_t size)
 {
-  /* User can add his own implementation to report the file name and line number,
-     ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
+  HAL_StatusTypeDef status;
+  
+  /* Receive data over UART with timeout */
+  status = HAL_UART_Receive(&g_huart3, buffer, size, 10000);
+  
+  return status;
 }
-#endif /* USE_FULL_ASSERT */
+

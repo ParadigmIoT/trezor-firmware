@@ -68,7 +68,7 @@ static void usb_init_all(secbool usb21_landing) {
       .usb21_landing = usb21_landing,
   };
 
-  static uint8_t rx_buffer[USB_PACKET_SIZE];
+  static uint8_t rx_buffer[COMM_PACKET_SIZE];
 
   static const usb_webusb_info_t webusb_info = {
       .iface_num = USB_IFACE_NUM,
@@ -94,12 +94,12 @@ static secbool bootloader_usb_loop(const vendor_header *const vhdr,
   // let's show a webusb landing page in this case
   usb_init_all((vhdr == NULL && hdr == NULL) ? sectrue : secfalse);
 
-  uint8_t buf[USB_PACKET_SIZE];
+  uint8_t buf[COMM_PACKET_SIZE];
 
   for (;;) {
-    int r = usb_webusb_read_blocking(USB_IFACE_NUM, buf, USB_PACKET_SIZE,
+    int r = usb_webusb_read_blocking(USB_IFACE_NUM, buf, COMM_PACKET_SIZE,
                                      USB_TIMEOUT);
-    if (r != USB_PACKET_SIZE) {
+    if (r != COMM_PACKET_SIZE) {
       continue;
     }
     uint16_t msg_id;
