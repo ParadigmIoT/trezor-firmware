@@ -73,7 +73,7 @@ void HAL_UART_MspDeInit(UART_HandleTypeDef* huart)
 void MX_USART3_UART_Init(void)
 {
   g_huart3.Instance = USART3;
-  g_huart3.Init.BaudRate = 115200;
+  g_huart3.Init.BaudRate = 921600;
   g_huart3.Init.WordLength = UART_WORDLENGTH_8B;
   g_huart3.Init.StopBits = UART_STOPBITS_1;
   g_huart3.Init.Parity = UART_PARITY_NONE;
@@ -138,7 +138,7 @@ HAL_StatusTypeDef uart_read_message(uint8_t *buffer, uint16_t size)
   HAL_StatusTypeDef status;
   
   /* Receive data over UART with timeout */
-  status = HAL_UART_Receive(&g_huart3, buffer, size, 10000);
+  status = HAL_UART_Receive(&g_huart3, buffer, size, 5000);
   
   return status;
 }

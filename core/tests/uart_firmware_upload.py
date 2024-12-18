@@ -31,7 +31,7 @@ MSG_TYPES = {
 }
 
 # Increased delay between packets to allow more processing time
-PACKET_DELAY = 0.02
+PACKET_DELAY = 0.012
 
 class TrezorProtocol:
     PACKET_SIZE = 64
@@ -73,8 +73,8 @@ class TrezorProtocol:
         data_len = min(len(data) - offset, 63)
         packet[1:1+data_len] = data[offset:offset+data_len]
 
-        logger.debug(f"Packed next packet: offset={offset}, data_len={data_len}")
-        logger.debug(f"Packet hex: {packet.hex()}")
+        # logger.debug(f"Packed next packet: offset={offset}, data_len={data_len}")
+        # logger.debug(f"Packet hex: {packet.hex()}")
         
         return bytes(packet)
     
@@ -334,8 +334,8 @@ def main():
     )
     parser.add_argument('port', help='Serial port (e.g., COM1 or /dev/ttyUSB0)')
     parser.add_argument('firmware', help='Firmware binary file')
-    parser.add_argument('--baudrate', type=int, default=115200,
-                      help='Baudrate (default: 115200)')
+    parser.add_argument('--baudrate', type=int, default=921600,
+                      help='Baudrate (default: 921600)')
     parser.add_argument('--debug', action='store_true',
                       help='Enable debug logging')
     

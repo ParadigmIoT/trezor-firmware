@@ -93,7 +93,7 @@ static bool _write(pb_ostream_t *stream, const pb_byte_t *buf,
              COMM_PACKET_SIZE - state->packet_pos);
       written += COMM_PACKET_SIZE - state->packet_pos;
       // send packet
-      int r = -1;
+      int r = 0;
       switch (state->iface_num) {
         case USB_IFACE_NUM:
           r = usb_webusb_write_blocking(state->iface_num, state->buf,
@@ -128,7 +128,7 @@ static void _write_flush(write_state *state) {
             COMM_PACKET_SIZE - state->packet_pos);
   }
   // send packet
-  int r = -1;
+  int r = 0;
   switch (state->iface_num) {
     case USB_IFACE_NUM:
       r = usb_webusb_write_blocking(state->iface_num, state->buf,
@@ -232,7 +232,7 @@ typedef struct {
 
 static void _read_retry(uint8_t iface_num, uint8_t *buf) {
   for (int retry = 0;; retry++) {
-    int r = -1;
+    int r = 0;
     switch (iface_num)
     {
     case USB_IFACE_NUM:
