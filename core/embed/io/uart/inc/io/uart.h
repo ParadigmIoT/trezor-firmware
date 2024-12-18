@@ -19,6 +19,7 @@
 void HAL_UART_MspInit(UART_HandleTypeDef* huart);
 void HAL_UART_MspDeInit(UART_HandleTypeDef* huart);
 void MX_USART3_UART_Init(void);
+void MX_USART3_UART_DeInit(void);
 HAL_StatusTypeDef uart_send_message(uint8_t *data, uint16_t size);
 HAL_StatusTypeDef uart_read_message(uint8_t *buffer, uint16_t size);
 

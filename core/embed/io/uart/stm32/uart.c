@@ -102,6 +102,16 @@ void MX_USART3_UART_Init(void)
 }
 
 /**
+  * @brief USART3 De-Initialization Function
+  * @param None
+  * @retval None
+  */
+void MX_USART3_UART_DeInit(void)
+{
+  HAL_UART_DeInit(&g_huart3);
+}
+
+/**
   * @brief  Send data over UART
   * @param  data: Pointer to data buffer to send
   * @param  size: Size of data buffer in bytes
