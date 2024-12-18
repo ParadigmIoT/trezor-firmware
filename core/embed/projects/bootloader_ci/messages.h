@@ -25,7 +25,7 @@
 #include <util/image.h>
 
 #define USB_TIMEOUT 500
-#define USB_PACKET_SIZE 64
+#define COMM_PACKET_SIZE 64
 
 #define FIRMWARE_UPLOAD_CHUNK_RETRY_COUNT 2
 

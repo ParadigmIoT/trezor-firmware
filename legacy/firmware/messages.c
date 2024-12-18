@@ -74,7 +74,7 @@ static uint32_t msg_out_start = 0;
 static uint32_t msg_out_end = 0;
 static uint32_t msg_out_cur = 0;
 static uint8_t msg_out[MSG_OUT_BUFFER_SIZE];
-_Static_assert(MSG_OUT_BUFFER_SIZE % USB_PACKET_SIZE == 0,
+_Static_assert(MSG_OUT_BUFFER_SIZE % COMM_PACKET_SIZE == 0,
                "MSG_OUT_BUFFER_SIZE");
 
 #if DEBUG_LINK
@@ -83,21 +83,21 @@ static uint32_t msg_debug_out_start = 0;
 static uint32_t msg_debug_out_end = 0;
 static uint32_t msg_debug_out_cur = 0;
 static uint8_t msg_debug_out[MSG_DEBUG_OUT_BUFFER_SIZE];
-_Static_assert(MSG_DEBUG_OUT_BUFFER_SIZE % USB_PACKET_SIZE == 0,
+_Static_assert(MSG_DEBUG_OUT_BUFFER_SIZE % COMM_PACKET_SIZE == 0,
                "MSG_DEBUG_OUT_BUFFER_SIZE");
 
 #endif
 
 static inline void msg_out_append(uint8_t c) {
   if (msg_out_cur == 0) {
-    msg_out[msg_out_end * USB_PACKET_SIZE] = '?';
+    msg_out[msg_out_end * COMM_PACKET_SIZE] = '?';
     msg_out_cur = 1;
   }
-  msg_out[msg_out_end * USB_PACKET_SIZE + msg_out_cur] = c;
+  msg_out[msg_out_end * COMM_PACKET_SIZE + msg_out_cur] = c;
   msg_out_cur++;
-  if (msg_out_cur == USB_PACKET_SIZE) {
+  if (msg_out_cur == COMM_PACKET_SIZE) {
     msg_out_cur = 0;
-    msg_out_end = (msg_out_end + 1) % (MSG_OUT_BUFFER_SIZE / USB_PACKET_SIZE);
+    msg_out_end = (msg_out_end + 1) % (MSG_OUT_BUFFER_SIZE / COMM_PACKET_SIZE);
   }
 }
 
@@ -105,15 +105,15 @@ static inline void msg_out_append(uint8_t c) {
 
 static inline void msg_debug_out_append(uint8_t c) {
   if (msg_debug_out_cur == 0) {
-    msg_debug_out[msg_debug_out_end * USB_PACKET_SIZE] = '?';
+    msg_debug_out[msg_debug_out_end * COMM_PACKET_SIZE] = '?';
     msg_debug_out_cur = 1;
   }
-  msg_debug_out[msg_debug_out_end * USB_PACKET_SIZE + msg_debug_out_cur] = c;
+  msg_debug_out[msg_debug_out_end * COMM_PACKET_SIZE + msg_debug_out_cur] = c;
   msg_debug_out_cur++;
-  if (msg_debug_out_cur == USB_PACKET_SIZE) {
+  if (msg_debug_out_cur == COMM_PACKET_SIZE) {
     msg_debug_out_cur = 0;
     msg_debug_out_end =
-        (msg_debug_out_end + 1) % (MSG_DEBUG_OUT_BUFFER_SIZE / USB_PACKET_SIZE);
+        (msg_debug_out_end + 1) % (MSG_DEBUG_OUT_BUFFER_SIZE / COMM_PACKET_SIZE);
   }
 }
 
@@ -121,25 +121,25 @@ static inline void msg_debug_out_append(uint8_t c) {
 
 static inline void msg_out_pad(void) {
   if (msg_out_cur == 0) return;
-  while (msg_out_cur < USB_PACKET_SIZE) {
-    msg_out[msg_out_end * USB_PACKET_SIZE + msg_out_cur] = 0;
+  while (msg_out_cur < COMM_PACKET_SIZE) {
+    msg_out[msg_out_end * COMM_PACKET_SIZE + msg_out_cur] = 0;
     msg_out_cur++;
   }
   msg_out_cur = 0;
-  msg_out_end = (msg_out_end + 1) % (MSG_OUT_BUFFER_SIZE / USB_PACKET_SIZE);
+  msg_out_end = (msg_out_end + 1) % (MSG_OUT_BUFFER_SIZE / COMM_PACKET_SIZE);
 }
 
 #if DEBUG_LINK
 
 static inline void msg_debug_out_pad(void) {
   if (msg_debug_out_cur == 0) return;
-  while (msg_debug_out_cur < USB_PACKET_SIZE) {
-    msg_debug_out[msg_debug_out_end * USB_PACKET_SIZE + msg_debug_out_cur] = 0;
+  while (msg_debug_out_cur < COMM_PACKET_SIZE) {
+    msg_debug_out[msg_debug_out_end * COMM_PACKET_SIZE + msg_debug_out_cur] = 0;
     msg_debug_out_cur++;
   }
   msg_debug_out_cur = 0;
   msg_debug_out_end =
-      (msg_debug_out_end + 1) % (MSG_DEBUG_OUT_BUFFER_SIZE / USB_PACKET_SIZE);
+      (msg_debug_out_end + 1) % (MSG_DEBUG_OUT_BUFFER_SIZE / COMM_PACKET_SIZE);
 }
 
 #endif
@@ -241,7 +241,7 @@ void msg_read_common(char type, const uint8_t *buf, uint32_t len) {
   static uint32_t msg_pos = 0;
   static const pb_msgdesc_t *fields = 0;
 
-  if (len != USB_PACKET_SIZE) return;
+  if (len != COMM_PACKET_SIZE) return;
 
   if (read_state == READSTATE_IDLE) {
     if (buf[0] != '?' || buf[1] != '#' ||
@@ -289,8 +289,8 @@ void msg_read_common(char type, const uint8_t *buf, uint32_t len) {
 
 const uint8_t *msg_out_data(void) {
   if (msg_out_start == msg_out_end) return 0;
-  uint8_t *data = msg_out + (msg_out_start * USB_PACKET_SIZE);
-  msg_out_start = (msg_out_start + 1) % (MSG_OUT_BUFFER_SIZE / USB_PACKET_SIZE);
+  uint8_t *data = msg_out + (msg_out_start * COMM_PACKET_SIZE);
+  msg_out_start = (msg_out_start + 1) % (MSG_OUT_BUFFER_SIZE / COMM_PACKET_SIZE);
   debugLog(0, "", "msg_out_data");
   return data;
 }
@@ -299,9 +299,9 @@ const uint8_t *msg_out_data(void) {
 
 const uint8_t *msg_debug_out_data(void) {
   if (msg_debug_out_start == msg_debug_out_end) return 0;
-  uint8_t *data = msg_debug_out + (msg_debug_out_start * USB_PACKET_SIZE);
+  uint8_t *data = msg_debug_out + (msg_debug_out_start * COMM_PACKET_SIZE);
   msg_debug_out_start =
-      (msg_debug_out_start + 1) % (MSG_DEBUG_OUT_BUFFER_SIZE / USB_PACKET_SIZE);
+      (msg_debug_out_start + 1) % (MSG_DEBUG_OUT_BUFFER_SIZE / COMM_PACKET_SIZE);
   debugLog(0, "", "msg_debug_out_data");
   return data;
 }
@@ -313,34 +313,34 @@ const uint8_t *msg_debug_out_data(void) {
 // protobuf message. However, 128 bytes should be more than enough.
 CONFIDENTIAL uint8_t msg_tiny[128];
 _Static_assert(sizeof(msg_tiny) >= sizeof(Cancel), "msg_tiny too tiny");
-_Static_assert(USB_PACKET_SIZE >= MSG_HEADER_SIZE + Cancel_size,
+_Static_assert(COMM_PACKET_SIZE >= MSG_HEADER_SIZE + Cancel_size,
                "msg_tiny too tiny");
 _Static_assert(sizeof(msg_tiny) >= sizeof(Initialize), "msg_tiny too tiny");
-_Static_assert(USB_PACKET_SIZE >= MSG_HEADER_SIZE + Initialize_size,
+_Static_assert(COMM_PACKET_SIZE >= MSG_HEADER_SIZE + Initialize_size,
                "msg_tiny too tiny");
 _Static_assert(sizeof(msg_tiny) >= sizeof(PassphraseAck), "msg_tiny too tiny");
-_Static_assert(USB_PACKET_SIZE >= MSG_HEADER_SIZE + PassphraseAck_size,
+_Static_assert(COMM_PACKET_SIZE >= MSG_HEADER_SIZE + PassphraseAck_size,
                "msg_tiny too tiny");
 _Static_assert(sizeof(msg_tiny) >= sizeof(ButtonAck), "msg_tiny too tiny");
-_Static_assert(USB_PACKET_SIZE >= MSG_HEADER_SIZE + ButtonAck_size,
+_Static_assert(COMM_PACKET_SIZE >= MSG_HEADER_SIZE + ButtonAck_size,
                "msg_tiny too tiny");
 _Static_assert(sizeof(msg_tiny) >= sizeof(PinMatrixAck), "msg_tiny too tiny");
-_Static_assert(USB_PACKET_SIZE >= MSG_HEADER_SIZE + PinMatrixAck_size,
+_Static_assert(COMM_PACKET_SIZE >= MSG_HEADER_SIZE + PinMatrixAck_size,
                "msg_tiny too tiny");
 #if DEBUG_LINK
 _Static_assert(sizeof(msg_tiny) >= sizeof(DebugLinkDecision),
                "msg_tiny too tiny");
-_Static_assert(USB_PACKET_SIZE >= MSG_HEADER_SIZE + DebugLinkDecision_size,
+_Static_assert(COMM_PACKET_SIZE >= MSG_HEADER_SIZE + DebugLinkDecision_size,
                "msg_tiny too tiny");
 _Static_assert(sizeof(msg_tiny) >= sizeof(DebugLinkGetState),
                "msg_tiny too tiny");
-_Static_assert(USB_PACKET_SIZE >= MSG_HEADER_SIZE + DebugLinkGetState_size,
+_Static_assert(COMM_PACKET_SIZE >= MSG_HEADER_SIZE + DebugLinkGetState_size,
                "msg_tiny too tiny");
 #endif
 uint16_t msg_tiny_id = 0xFFFF;
 
 void msg_read_tiny(const uint8_t *buf, int len) {
-  if (len != USB_PACKET_SIZE || buf[0] != '?' || buf[1] != '#' ||
+  if (len != COMM_PACKET_SIZE || buf[0] != '?' || buf[1] != '#' ||
       buf[2] != '#') {
     // Ignore unexpected packets. This is helpful when two applications are
     // attempting to communicate with Trezor at the same time.

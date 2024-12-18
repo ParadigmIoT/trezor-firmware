@@ -41,6 +41,7 @@
 #include <util/rsod.h>
 #include <util/unit_properties.h>
 #include "messages.pb.h"
+#include <io/uart.h>
 
 #ifdef USE_PVD
 #include <sys/pvd.h>
@@ -78,77 +79,36 @@
 #endif
 
 #define USB_IFACE_NUM 0
+#define UART_IFACE_NUM 1
 
 typedef enum {
   SHUTDOWN = 0,
   CONTINUE_TO_FIRMWARE = 0xAABBCCDD,
   RETURN_TO_MENU = 0x55667788,
-} usb_result_t;
+} conn_result_t;
 
 void failed_jump_to_firmware(void);
 
 CONFIDENTIAL volatile secbool dont_optimize_out_true = sectrue;
 CONFIDENTIAL void (*volatile firmware_jump_fn)(void) = failed_jump_to_firmware;
 
-static void usb_init_all(secbool usb21_landing) {
-  usb_dev_info_t dev_info = {
-      .device_class = 0x00,
-      .device_subclass = 0x00,
-      .device_protocol = 0x00,
-      .vendor_id = 0x1209,
-      .product_id = 0x53C0,
-      .release_num = 0x0200,
-      .manufacturer = MODEL_USB_MANUFACTURER,
-      .product = MODEL_USB_PRODUCT,
-      .serial_number = "000000000000000000000000",
-      .interface = "TREZOR Interface",
-      .usb21_enabled = sectrue,
-      .usb21_landing = usb21_landing,
-  };
+static conn_result_t bootloader_uart_loop(const vendor_header *const vhdr,
+                                          const image_header * const hdr) {
+  // Initialize UART3
+  uint8_t buf[COMM_PACKET_SIZE];
 
-  static uint8_t rx_buffer[USB_PACKET_SIZE];
+  MX_USART3_UART_Init();
 
-  static const usb_webusb_info_t webusb_info = {
-      .iface_num = USB_IFACE_NUM,
-#ifdef TREZOR_EMULATOR
-      .emu_port = 21324,
-#else
-      .ep_in = 0x01,
-      .ep_out = 0x01,
-#endif
-      .subclass = 0,
-      .protocol = 0,
-      .max_packet_len = sizeof(rx_buffer),
-      .rx_buffer = rx_buffer,
-      .polling_interval = 1,
-  };
-
-  ensure(usb_init(&dev_info), NULL);
-
-  ensure(usb_webusb_add(&webusb_info), NULL);
-
-  ensure(usb_start(), NULL);
-}
-
-static usb_result_t bootloader_usb_loop(const vendor_header *const vhdr,
-                                        const image_header *const hdr) {
-  // if both are NULL, we don't have a firmware installed
-  // let's show a webusb landing page in this case
-  usb_init_all((vhdr == NULL && hdr == NULL) ? sectrue : secfalse);
-
-  uint8_t buf[USB_PACKET_SIZE];
-
+  // UART processing loop
   for (;;) {
-#ifdef TREZOR_EMULATOR
-    // Ensures that SDL events are processed. This prevents the emulator from
-    // freezing when the user interacts with the window.
-    SDL_PumpEvents();
-#endif
-    int r = usb_webusb_read_blocking(USB_IFACE_NUM, buf, USB_PACKET_SIZE,
-                                     USB_TIMEOUT);
-    if (r != USB_PACKET_SIZE) {
+    // flush buffer
+    memset(buf, 0, COMM_PACKET_SIZE);
+    int r = (int) uart_read_message(buf, COMM_PACKET_SIZE);
+
+    if (r != (int) HAL_OK || buf[0] == 0) {
       continue;
     }
+
     uint16_t msg_id;
     uint32_t msg_size;
     uint32_t response;
@@ -158,21 +118,21 @@ static usb_result_t bootloader_usb_loop(const vendor_header *const vhdr,
     }
     switch (msg_id) {
       case MessageType_MessageType_Initialize:
-        process_msg_Initialize(USB_IFACE_NUM, msg_size, buf, vhdr, hdr);
+        process_msg_Initialize(UART_IFACE_NUM, msg_size, buf, vhdr, hdr);
         break;
       case MessageType_MessageType_Ping:
-        process_msg_Ping(USB_IFACE_NUM, msg_size, buf);
+        process_msg_Ping(UART_IFACE_NUM, msg_size, buf);
         break;
       case MessageType_MessageType_WipeDevice:
         response = ui_screen_wipe_confirm();
         if (INPUT_CANCEL == response) {
-          send_user_abort(USB_IFACE_NUM, "Wipe cancelled");
+          send_user_abort(UART_IFACE_NUM, "Wipe cancelled");
           hal_delay(100);
           usb_deinit();
           return RETURN_TO_MENU;
         }
         ui_screen_wipe();
-        r = process_msg_WipeDevice(USB_IFACE_NUM, msg_size, buf);
+        r = process_msg_WipeDevice(UART_IFACE_NUM, msg_size, buf);
         if (r < 0) {  // error
           screen_wipe_fail();
           hal_delay(100);
@@ -186,10 +146,10 @@ static usb_result_t bootloader_usb_loop(const vendor_header *const vhdr,
         }
         break;
       case MessageType_MessageType_FirmwareErase:
-        process_msg_FirmwareErase(USB_IFACE_NUM, msg_size, buf);
+        process_msg_FirmwareErase(UART_IFACE_NUM, msg_size, buf);
         break;
       case MessageType_MessageType_FirmwareUpload:
-        r = process_msg_FirmwareUpload(USB_IFACE_NUM, msg_size, buf);
+        r = process_msg_FirmwareUpload(UART_IFACE_NUM, msg_size, buf);
         if (r < 0 && r != UPLOAD_ERR_USER_ABORT) {  // error, but not user abort
           if (r == UPLOAD_ERR_BOOTLOADER_LOCKED) {
             // This function does not return
@@ -197,11 +157,11 @@ static usb_result_t bootloader_usb_loop(const vendor_header *const vhdr,
           } else {
             ui_screen_fail();
           }
-          usb_deinit();
+          MX_USART3_UART_DeInit();
           return SHUTDOWN;
         } else if (r == UPLOAD_ERR_USER_ABORT) {
           hal_delay(100);
-          usb_deinit();
+          MX_USART3_UART_DeInit();
           return RETURN_TO_MENU;
         } else if (r == 0) {  // last chunk received
           ui_screen_install_progress_upload(1000);
@@ -212,31 +172,31 @@ static usb_result_t bootloader_usb_loop(const vendor_header *const vhdr,
           hal_delay(1000);
           ui_screen_done(1, secfalse);
           hal_delay(1000);
-          usb_deinit();
+          MX_USART3_UART_DeInit();
           return CONTINUE_TO_FIRMWARE;
         }
         break;
       case MessageType_MessageType_GetFeatures:
-        process_msg_GetFeatures(USB_IFACE_NUM, msg_size, buf, vhdr, hdr);
+        process_msg_GetFeatures(UART_IFACE_NUM, msg_size, buf, vhdr, hdr);
         break;
 #if defined USE_OPTIGA
       case MessageType_MessageType_UnlockBootloader:
         response = ui_screen_unlock_bootloader_confirm();
         if (INPUT_CANCEL == response) {
-          send_user_abort(USB_IFACE_NUM, "Bootloader unlock cancelled");
+          send_user_abort(UART_IFACE_NUM, "Bootloader unlock cancelled");
           hal_delay(100);
-          usb_deinit();
+          MX_USART3_UART_DeInit();
           return RETURN_TO_MENU;
         }
-        process_msg_UnlockBootloader(USB_IFACE_NUM, msg_size, buf);
+        process_msg_UnlockBootloader(UART_IFACE_NUM, msg_size, buf);
         screen_unlock_bootloader_success();
         hal_delay(100);
-        usb_deinit();
+        MX_USART3_UART_DeInit();
         return SHUTDOWN;
         break;
 #endif
       default:
-        process_msg_unknown(USB_IFACE_NUM, msg_size, buf);
+        process_msg_unknown(UART_IFACE_NUM, msg_size, buf);
         break;
     }
   }
@@ -569,7 +529,7 @@ int bootloader_main(void) {
           ui_screen_welcome();
 
           // and start the usb loop
-          switch (bootloader_usb_loop(NULL, NULL)) {
+          switch (bootloader_uart_loop(NULL, NULL)) {
             case CONTINUE_TO_FIRMWARE:
               continue_to_firmware = sectrue;
               continue_to_firmware_backup = sectrue;
@@ -628,7 +588,7 @@ int bootloader_main(void) {
           break;
         case SCREEN_WAIT_FOR_HOST:
           screen_connect(auto_upgrade == sectrue);
-          switch (bootloader_usb_loop(&vhdr, hdr)) {
+          switch (bootloader_uart_loop(&vhdr, hdr)) {
             case CONTINUE_TO_FIRMWARE:
               continue_to_firmware = sectrue;
               continue_to_firmware_backup = sectrue;

@@ -53,20 +53,20 @@ typedef struct {
   uint8_t iface_num;
   uint8_t packet_index;
   uint8_t packet_pos;
-  uint8_t buf[USB_PACKET_SIZE];
-} usb_write_state;
+  uint8_t buf[COMM_PACKET_SIZE];
+} write_state;
 
 /* we don't use secbool/sectrue/secfalse here as it is a nanopb api */
-static bool _usb_write(pb_ostream_t *stream, const pb_byte_t *buf,
+static bool _write(pb_ostream_t *stream, const pb_byte_t *buf,
                        size_t count) {
-  usb_write_state *state = (usb_write_state *)(stream->state);
+  write_state *state = (write_state *)(stream->state);
 
   size_t written = 0;
   // while we have data left
   while (written < count) {
     size_t remaining = count - written;
     // if all remaining data fit into our packet
-    if (state->packet_pos + remaining <= USB_PACKET_SIZE) {
+    if (state->packet_pos + remaining <= COMM_PACKET_SIZE) {
       // append data from buf to state->buf
       memcpy(state->buf + state->packet_pos, buf + written, remaining);
       // advance position
@@ -76,15 +76,15 @@ static bool _usb_write(pb_ostream_t *stream, const pb_byte_t *buf,
     } else {
       // append data that fits
       memcpy(state->buf + state->packet_pos, buf + written,
-             USB_PACKET_SIZE - state->packet_pos);
-      written += USB_PACKET_SIZE - state->packet_pos;
+             COMM_PACKET_SIZE - state->packet_pos);
+      written += COMM_PACKET_SIZE - state->packet_pos;
       // send packet
       int r = usb_webusb_write_blocking(state->iface_num, state->buf,
-                                        USB_PACKET_SIZE, USB_TIMEOUT);
-      ensure(sectrue * (r == USB_PACKET_SIZE), NULL);
+                                        COMM_PACKET_SIZE, USB_TIMEOUT);
+      ensure(sectrue * (r == COMM_PACKET_SIZE), NULL);
       // prepare new packet
       state->packet_index++;
-      memzero(state->buf, USB_PACKET_SIZE);
+      memzero(state->buf, COMM_PACKET_SIZE);
       state->buf[0] = '?';
       state->packet_pos = MSG_HEADER2_LEN;
     }
@@ -93,17 +93,17 @@ static bool _usb_write(pb_ostream_t *stream, const pb_byte_t *buf,
   return true;
 }
 
-static void _usb_write_flush(usb_write_state *state) {
+static void _write_flush(write_state *state) {
   // if packet is not filled up completely
-  if (state->packet_pos < USB_PACKET_SIZE) {
+  if (state->packet_pos < COMM_PACKET_SIZE) {
     // pad it with zeroes
     memzero(state->buf + state->packet_pos,
-            USB_PACKET_SIZE - state->packet_pos);
+            COMM_PACKET_SIZE - state->packet_pos);
   }
   // send packet
   int r = usb_webusb_write_blocking(state->iface_num, state->buf,
-                                    USB_PACKET_SIZE, USB_TIMEOUT);
-  ensure(sectrue * (r == USB_PACKET_SIZE), NULL);
+                                    COMM_PACKET_SIZE, USB_TIMEOUT);
+  ensure(sectrue * (r == COMM_PACKET_SIZE), NULL);
 }
 
 static secbool _send_msg(uint8_t iface_num, uint16_t msg_id,
@@ -119,7 +119,7 @@ static secbool _send_msg(uint8_t iface_num, uint16_t msg_id,
   }
   const uint32_t msg_size = sizestream.bytes_written;
 
-  usb_write_state state = {
+  write_state state = {
       .iface_num = iface_num,
       .packet_index = 0,
       .packet_pos = MSG_HEADER1_LEN,
@@ -137,7 +137,7 @@ static secbool _send_msg(uint8_t iface_num, uint16_t msg_id,
           },
   };
 
-  pb_ostream_t stream = {.callback = &_usb_write,
+  pb_ostream_t stream = {.callback = &_write,
                          .state = &state,
                          .max_size = SIZE_MAX,
                          .bytes_written = 0,
@@ -147,7 +147,7 @@ static secbool _send_msg(uint8_t iface_num, uint16_t msg_id,
     return secfalse;
   }
 
-  _usb_write_flush(&state);
+  _write_flush(&state);
 
   return sectrue;
 }
@@ -188,13 +188,13 @@ typedef struct {
   uint8_t packet_index;
   uint8_t packet_pos;
   uint8_t *buf;
-} usb_read_state;
+} read_state;
 
-static void _usb_webusb_read_retry(uint8_t iface_num, uint8_t *buf) {
+static void _read_retry(uint8_t iface_num, uint8_t *buf) {
   for (int retry = 0;; retry++) {
     int r =
-        usb_webusb_read_blocking(iface_num, buf, USB_PACKET_SIZE, USB_TIMEOUT);
-    if (r != USB_PACKET_SIZE) {  // reading failed
+        usb_webusb_read_blocking(iface_num, buf, COMM_PACKET_SIZE, USB_TIMEOUT);
+    if (r != COMM_PACKET_SIZE) {  // reading failed
       if (r == 0 && retry < 10) {
         // only timeout => let's try again
       } else {
@@ -209,15 +209,15 @@ static void _usb_webusb_read_retry(uint8_t iface_num, uint8_t *buf) {
 }
 
 /* we don't use secbool/sectrue/secfalse here as it is a nanopb api */
-static bool _usb_read(pb_istream_t *stream, uint8_t *buf, size_t count) {
-  usb_read_state *state = (usb_read_state *)(stream->state);
+static bool _read(pb_istream_t *stream, uint8_t *buf, size_t count) {
+  read_state *state = (read_state *)(stream->state);
 
   size_t read = 0;
   // while we have data left
   while (read < count) {
     size_t remaining = count - read;
     // if all remaining data fit into our packet
-    if (state->packet_pos + remaining <= USB_PACKET_SIZE) {
+    if (state->packet_pos + remaining <= COMM_PACKET_SIZE) {
       // append data from buf to state->buf
       memcpy(buf + read, state->buf + state->packet_pos, remaining);
       // advance position
@@ -227,10 +227,10 @@ static bool _usb_read(pb_istream_t *stream, uint8_t *buf, size_t count) {
     } else {
       // append data that fits
       memcpy(buf + read, state->buf + state->packet_pos,
-             USB_PACKET_SIZE - state->packet_pos);
-      read += USB_PACKET_SIZE - state->packet_pos;
+             COMM_PACKET_SIZE - state->packet_pos);
+      read += COMM_PACKET_SIZE - state->packet_pos;
       // read next packet (with retry)
-      _usb_webusb_read_retry(state->iface_num, state->buf);
+      _read_retry(state->iface_num, state->buf);
       // prepare next packet
       state->packet_index++;
       state->packet_pos = MSG_HEADER2_LEN;
@@ -240,16 +240,16 @@ static bool _usb_read(pb_istream_t *stream, uint8_t *buf, size_t count) {
   return true;
 }
 
-static void _usb_read_flush(usb_read_state *state) { (void)state; }
+static void _read_flush(read_state *state) { (void)state; }
 
 static secbool _recv_msg(uint8_t iface_num, uint32_t msg_size, uint8_t *buf,
                          const pb_msgdesc_t *fields, void *msg) {
-  usb_read_state state = {.iface_num = iface_num,
+  read_state state = {.iface_num = iface_num,
                           .packet_index = 0,
                           .packet_pos = MSG_HEADER1_LEN,
                           .buf = buf};
 
-  pb_istream_t stream = {.callback = &_usb_read,
+  pb_istream_t stream = {.callback = &_read,
                          .state = &state,
                          .bytes_left = msg_size,
                          .errmsg = NULL};
@@ -258,7 +258,7 @@ static secbool _recv_msg(uint8_t iface_num, uint32_t msg_size, uint8_t *buf,
     return secfalse;
   }
 
-  _usb_read_flush(&state);
+  _read_flush(&state);
 
   return sectrue;
 }
@@ -663,17 +663,17 @@ void process_msg_unknown(uint8_t iface_num, uint32_t msg_size, uint8_t *buf) {
   // consume remaining message
   int remaining_chunks = 0;
 
-  if (msg_size > (USB_PACKET_SIZE - MSG_HEADER1_LEN)) {
+  if (msg_size > (COMM_PACKET_SIZE - MSG_HEADER1_LEN)) {
     // calculate how many blocks need to be read to drain the message (rounded
     // up to not leave any behind)
-    remaining_chunks = (msg_size - (USB_PACKET_SIZE - MSG_HEADER1_LEN) +
-                        ((USB_PACKET_SIZE - MSG_HEADER2_LEN) - 1)) /
-                       (USB_PACKET_SIZE - MSG_HEADER2_LEN);
+    remaining_chunks = (msg_size - (COMM_PACKET_SIZE - MSG_HEADER1_LEN) +
+                        ((COMM_PACKET_SIZE - MSG_HEADER2_LEN) - 1)) /
+                       (COMM_PACKET_SIZE - MSG_HEADER2_LEN);
   }
 
   for (int i = 0; i < remaining_chunks; i++) {
     // read next packet (with retry)
-    _usb_webusb_read_retry(iface_num, buf);
+    _read_retry(iface_num, buf);
   }
 
   MSG_SEND_INIT(Failure);

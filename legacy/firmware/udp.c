@@ -39,7 +39,7 @@ void usbInit(void) { emulatorSocketInit(); }
 void waitAndProcessUSBRequests(uint32_t millis) {
   emulatorPoll();
 
-  static uint8_t buffer[USB_PACKET_SIZE];
+  static uint8_t buffer[COMM_PACKET_SIZE];
 
   int iface = 0;
   if (emulatorSocketRead(&iface, buffer, sizeof(buffer), millis) > 0) {
@@ -54,12 +54,12 @@ void waitAndProcessUSBRequests(uint32_t millis) {
 
   const uint8_t *data;
   while ((data = msg_out_data()) != NULL) {
-    emulatorSocketWrite(0, data, USB_PACKET_SIZE);
+    emulatorSocketWrite(0, data, COMM_PACKET_SIZE);
   }
 
 #if DEBUG_LINK
   while ((data = msg_debug_out_data()) != NULL) {
-    emulatorSocketWrite(1, data, USB_PACKET_SIZE);
+    emulatorSocketWrite(1, data, COMM_PACKET_SIZE);
   }
 #endif
 }
@@ -75,7 +75,7 @@ char usbTiny(char set) {
 void usbFlush(uint32_t millis) {
   const uint8_t *data;
   while ((data = msg_out_data()) != NULL) {
-    emulatorSocketWrite(0, data, USB_PACKET_SIZE);
+    emulatorSocketWrite(0, data, COMM_PACKET_SIZE);
   }
   usleep(millis * 1000);
 }

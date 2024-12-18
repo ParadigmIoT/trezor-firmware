@@ -490,6 +490,13 @@ combine_fw: ## combine boardloader + bootloader + firmware into one combined ima
 		-b BOARDLOADER $(BOARDLOADER_BUILD_DIR)/boardloader.bin \
 		-b BOOTLOADER $(BOOTLOADER_BUILD_DIR)/bootloader.bin \
 		-b FIRMWARE $(FIRMWARE_BUILD_DIR)/firmware.bin
+
+combine_wo_fw: ## combine boardloader + bootloader into one combined image
+	combine_firmware \
+		$(TREZOR_MODEL) \
+		$(PRODTEST_BUILD_DIR)/combined_no_fw.bin \
+		-b BOARDLOADER $(BOARDLOADER_BUILD_DIR)/boardloader.bin \
+		-b BOOTLOADER $(BOOTLOADER_BUILD_DIR)/bootloader.bin
 endif
 
 upload: ## upload firmware using trezorctl
