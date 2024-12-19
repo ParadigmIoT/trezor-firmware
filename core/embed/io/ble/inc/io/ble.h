@@ -96,7 +96,7 @@ bool ble_issue_command(ble_command_t command);
 //
 // Returns `true` if an event was successfully read, `false` if no event is
 // available.
-bool ble_read_event(ble_event_t *event);
+bool ble_get_event(ble_event_t *event);
 
 // Retrieves the current state of the BLE module
 //
@@ -110,6 +110,9 @@ bool ble_can_write(void);
 //
 // Sends data over an established BLE connection.
 bool ble_write(const uint8_t *data, uint16_t len);
+
+// Check if read is possible
+bool ble_can_read(void);
 
 // Reads data from a connected BLE device
 //

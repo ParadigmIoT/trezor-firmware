@@ -36,14 +36,14 @@
 #include <util/option_bytes.h>
 #include <util/rsod.h>
 #include <util/unit_properties.h>
-
-#include <io/ble.h>
-#include <gfx/dma2d_bitblt.h>
-#include <sys/irq.h>
 #include "memzero.h"
 
 #ifdef USE_BUTTON
 #include <io/button.h>
+#endif
+
+#ifdef USE_BLE
+#include <io/ble.h>
 #endif
 
 #ifdef USE_CONSUMPTION_MASK

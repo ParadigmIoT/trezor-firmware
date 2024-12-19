@@ -2,7 +2,6 @@
 
 #include <gfx/fonts.h>
 #include <gfx/gfx_bitblt.h>
-#include <gfx/dma2d_bitblt.h>
 #include <io/display.h>
 #include <io/usb.h>
 #include <rtl/secbool.h>
@@ -10,8 +9,11 @@
 #include <sys/systick.h>
 #include <util/flash.h>
 #include <util/translations.h>
-#include <io/ble.h>
 #include "storage.h"
+
+#ifdef USE_BLE
+#include <io/ble.h>
+#endif
 
 #ifdef USE_BUTTON
 #include <io/button.h>

@@ -162,8 +162,12 @@ secbool usb_start(void) { return (secbool)syscall_invoke0(SYSCALL_USB_START); }
 
 void usb_stop(void) { syscall_invoke0(SYSCALL_USB_STOP); }
 
-secbool usb_configured(void) {
-  return (secbool)syscall_invoke0(SYSCALL_USB_CONFIGURED);
+usb_event_t usb_get_event(void) {
+  return (usb_event_t)syscall_invoke0(SYSCALL_USB_GET_EVENT);
+}
+
+void usb_get_state(usb_state_t *state) {
+  syscall_invoke1((uint32_t)state, SYSCALL_USB_GET_STATE);
 }
 
 // =============================================================================
@@ -638,7 +642,6 @@ secbool firmware_calc_hash(const uint8_t *challenge, size_t challenge_len,
   return syscall_invoke6((uint32_t)challenge, challenge_len, (uint32_t)hash,
                          hash_len, (uint32_t)firmware_hash_callback_wrapper,
                          (uint32_t)callback_context,
-
                          SYSCALL_FIRMWARE_CALC_HASH);
 }
 
@@ -656,8 +659,8 @@ bool ble_issue_command(ble_command_t command) {
   return (bool)syscall_invoke1((uint32_t)command, SYSCALL_BLE_ISSUE_COMMAND);
 }
 
-bool ble_read_event(ble_event_t *event) {
-  return (bool)syscall_invoke1((uint32_t)event, SYSCALL_BLE_READ_EVENT);
+bool ble_get_event(ble_event_t *event) {
+  return (bool)syscall_invoke1((uint32_t)event, SYSCALL_BLE_GET_EVENT);
 }
 
 void ble_get_state(ble_state_t *state) {
@@ -670,10 +673,12 @@ bool ble_write(const uint8_t *data, uint16_t len) {
   return syscall_invoke2((uint32_t)data, len, SYSCALL_BLE_WRITE);
 }
 
+bool ble_can_read(void) { return syscall_invoke0(SYSCALL_BLE_CAN_READ); }
+
 uint32_t ble_read(uint8_t *data, uint16_t len) {
   return (uint32_t)syscall_invoke2((uint32_t)data, len, SYSCALL_BLE_READ);
 }
 
 #endif
 
-#endif
+#endif  // KERNEL_MODE

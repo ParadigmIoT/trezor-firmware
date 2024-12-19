@@ -193,6 +193,18 @@ access_violation:
 
 // ---------------------------------------------------------------------
 
+void usb_get_state__verified(usb_state_t *state) {
+  if (!probe_write_access(state, sizeof(*state))) {
+    goto access_violation;
+  }
+
+  usb_get_state(state);
+  return;
+
+access_violation:
+  apptask_access_violation();
+}
+
 int usb_hid_read__verified(uint8_t iface_num, uint8_t *buf, uint32_t len) {
   if (!probe_write_access(buf, len)) {
     goto access_violation;
@@ -705,6 +717,7 @@ access_violation:
 
 // ---------------------------------------------------------------------
 
+#ifdef USE_BLE
 void ble_get_state__verified(ble_state_t *state) {
   if (!probe_write_access(state, sizeof(*state))) {
     goto access_violation;
@@ -717,12 +730,12 @@ access_violation:
   apptask_access_violation();
 }
 
-bool ble_read_event__verified(ble_event_t *event) {
+bool ble_get_event__verified(ble_event_t *event) {
   if (!probe_write_access(event, sizeof(*event))) {
     goto access_violation;
   }
 
-  return ble_read_event(event);
+  return ble_get_event(event);
 
 access_violation:
   apptask_access_violation();
@@ -752,5 +765,6 @@ access_violation:
   apptask_access_violation();
   return 0;
 }
+#endif
 
 #endif  // SYSCALL_DISPATCH

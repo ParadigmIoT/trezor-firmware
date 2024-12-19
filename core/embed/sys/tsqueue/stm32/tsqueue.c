@@ -28,13 +28,9 @@ void tsqueue_init(tsqueue_t *queue, tsqueue_entry_t *entries,
   irq_key_t key = irq_lock();
   queue->entries = entries;
   queue->rix = 0;
-  queue->fix = 0;
-  queue->pix = 0;
   queue->wix = 0;
   queue->qlen = qlen;
   queue->size = size;
-  queue->overrun = false;
-  queue->overrun_count = 0;
   queue->next_id = 1;
 
   for (int i = 0; i < qlen; i++) {
@@ -42,7 +38,6 @@ void tsqueue_init(tsqueue_t *queue, tsqueue_entry_t *entries,
       queue->entries[i].buffer = buffer_mem + i * size;
       memset(queue->entries[i].buffer, 0, size);
     }
-    queue->entries[i].state = TSQUEUE_ENTRY_EMPTY;
     queue->entries[i].len = 0;
   }
 
@@ -50,8 +45,8 @@ void tsqueue_init(tsqueue_t *queue, tsqueue_entry_t *entries,
 }
 
 static void tsqueue_entry_reset(tsqueue_entry_t *entry, uint32_t data_size) {
-  entry->state = TSQUEUE_ENTRY_EMPTY;
   entry->len = 0;
+  entry->used = 0;
   entry->aborted = false;
   entry->id = 0;
   memset(entry->buffer, 0, data_size);
@@ -60,11 +55,7 @@ static void tsqueue_entry_reset(tsqueue_entry_t *entry, uint32_t data_size) {
 void tsqueue_reset(tsqueue_t *queue) {
   irq_key_t key = irq_lock();
   queue->rix = 0;
-  queue->fix = 0;
-  queue->pix = 0;
   queue->wix = 0;
-  queue->overrun = false;
-  queue->overrun_count = 0;
   queue->next_id = 1;
 
   for (int i = 0; i < queue->qlen; i++) {
@@ -74,12 +65,23 @@ void tsqueue_reset(tsqueue_t *queue) {
   irq_unlock(key);
 }
 
-// Insert data into the queue
-bool tsqueue_insert(tsqueue_t *queue, const uint8_t *data, uint16_t len,
-                    uint32_t *id) {
+static int32_t get_next_id(tsqueue_t *queue) {
+  int val = 1;
+  if (queue->next_id < INT32_MAX) {
+    val = queue->next_id;
+    queue->next_id++;
+  } else {
+    queue->next_id = 1;
+  }
+  return val;
+}
+
+bool tsqueue_enqueue(tsqueue_t *queue, const uint8_t *data, uint16_t len,
+                     int32_t *id) {
   irq_key_t key = irq_lock();
 
-  if (queue->entries[queue->wix].state != TSQUEUE_ENTRY_EMPTY) {
+  if (queue->entries[queue->wix].used) {
+    // Full queue
     irq_unlock(key);
     return false;
   }
@@ -89,72 +91,15 @@ bool tsqueue_insert(tsqueue_t *queue, const uint8_t *data, uint16_t len,
     return false;
   }
 
-  if (queue->fix != queue->wix) {
-    // Some item is already allocated, return false
-    irq_unlock(key);
-    return false;
-  }
-
   memcpy(queue->entries[queue->wix].buffer, data, len);
-  queue->entries[queue->wix].state = TSQUEUE_ENTRY_FULL;
+  queue->entries[queue->wix].id = get_next_id(queue);
   queue->entries[queue->wix].len = len;
-  queue->entries[queue->wix].id = queue->next_id++;
+  queue->entries[queue->wix].used = true;
+
   if (id != NULL) {
     *id = queue->entries[queue->wix].id;
   }
   queue->wix = (queue->wix + 1) % queue->qlen;
-  queue->fix = queue->wix;
-
-  irq_unlock(key);
-  return true;
-}
-
-// Allocate an entry in the queue
-uint8_t *tsqueue_allocate(tsqueue_t *queue, uint32_t *id) {
-  irq_key_t key = irq_lock();
-
-  if (queue->entries[queue->wix].state != TSQUEUE_ENTRY_EMPTY) {
-    queue->overrun = true;
-    queue->overrun_count++;
-    irq_unlock(key);
-    return NULL;
-  }
-
-  if (queue->fix != queue->wix) {
-    // Some item is already allocated, return NULL
-    irq_unlock(key);
-    return NULL;
-  }
-
-  queue->entries[queue->wix].state = TSQUEUE_ENTRY_ALLOCATED;
-  queue->entries[queue->wix].id = queue->next_id++;
-  if (id != NULL) {
-    *id = queue->entries[queue->wix].id;
-  }
-  uint8_t *buffer = queue->entries[queue->wix].buffer;
-  queue->fix = queue->wix;
-  queue->wix = (queue->wix + 1) % queue->qlen;
-
-  irq_unlock(key);
-  return buffer;
-}
-
-// Finalize an allocated entry
-bool tsqueue_finalize(tsqueue_t *queue, const uint8_t *buffer, uint16_t len) {
-  irq_key_t key = irq_lock();
-
-  if (queue->entries[queue->fix].state != TSQUEUE_ENTRY_ALLOCATED) {
-    irq_unlock(key);
-    return false;
-  }
-  if (queue->entries[queue->fix].buffer != buffer) {
-    irq_unlock(key);
-    return false;
-  }
-
-  queue->entries[queue->fix].len = len;
-  queue->entries[queue->fix].state = TSQUEUE_ENTRY_FULL;
-  queue->fix = (queue->fix + 1) % queue->qlen;
 
   irq_unlock(key);
   return true;
@@ -164,24 +109,16 @@ static void tsqueue_discard_aborted(tsqueue_t *queue) {
   while (queue->entries[queue->rix].aborted) {
     tsqueue_entry_reset(&queue->entries[queue->rix], queue->size);
     queue->rix = (queue->rix + 1) % queue->qlen;
-    queue->pix = queue->rix;
   }
 }
 
-// Read data from the queue
-bool tsqueue_read(tsqueue_t *queue, uint8_t *data, uint16_t max_len,
-                  uint16_t *len) {
+bool tsqueue_dequeue(tsqueue_t *queue, uint8_t *data, uint16_t max_len,
+                     uint16_t *len, int32_t *id) {
   irq_key_t key = irq_lock();
 
   tsqueue_discard_aborted(queue);
 
-  if (queue->entries[queue->rix].state != TSQUEUE_ENTRY_FULL) {
-    irq_unlock(key);
-    return false;
-  }
-
-  if (queue->rix != queue->pix) {
-    // Some item is being processed, return false
+  if (!queue->entries[queue->rix].used) {
     irq_unlock(key);
     return false;
   }
@@ -190,76 +127,19 @@ bool tsqueue_read(tsqueue_t *queue, uint8_t *data, uint16_t max_len,
     *len = queue->entries[queue->rix].len;
   }
 
+  if (id != NULL) {
+    *id = queue->entries[queue->rix].id;
+  }
+
   memcpy(data, queue->entries[queue->rix].buffer,
          MIN(queue->entries[queue->rix].len, max_len));
+
   tsqueue_entry_reset(queue->entries + queue->rix, queue->size);
   queue->rix = (queue->rix + 1) % queue->qlen;
-  queue->pix = queue->rix;
 
   tsqueue_discard_aborted(queue);
 
   irq_unlock(key);
-  return true;
-}
-
-// Process an entry in the queue
-uint8_t *tsqueue_process(tsqueue_t *queue, uint16_t *len) {
-  irq_key_t key = irq_lock();
-
-  tsqueue_discard_aborted(queue);
-
-  if (queue->entries[queue->rix].state == TSQUEUE_ENTRY_FULL) {
-    queue->entries[queue->rix].state = TSQUEUE_ENTRY_PROCESSING;
-  } else {
-    irq_unlock(key);
-    return NULL;
-  }
-
-  if (queue->pix != queue->rix) {
-    // Some item is already being processed, return NULL
-    irq_unlock(key);
-    return NULL;
-  }
-
-  queue->pix = queue->rix;
-  queue->rix = (queue->rix + 1) % queue->qlen;
-  if (len != NULL) {
-    *len = queue->entries[queue->pix].len;
-  }
-
-  irq_unlock(key);
-  return queue->entries[queue->pix].buffer;
-}
-
-// Mark processing as done
-bool tsqueue_process_done(tsqueue_t *queue, uint8_t *data, uint16_t max_len,
-                          uint16_t *len, bool *aborted) {
-  irq_key_t key = irq_lock();
-
-  if (queue->entries[queue->pix].state != TSQUEUE_ENTRY_PROCESSING) {
-    irq_unlock(key);
-    return false;
-  }
-
-  if (len != NULL) {
-    *len = queue->entries[queue->pix].len;
-  }
-
-  if (aborted != NULL) {
-    *aborted = queue->entries[queue->pix].aborted;
-  }
-
-  memcpy(data, queue->entries[queue->pix].buffer,
-         MIN(queue->entries[queue->pix].len, max_len));
-
-  tsqueue_entry_reset(queue->entries + queue->pix, queue->size);
-
-  queue->pix = (queue->pix + 1) % queue->qlen;
-
-  tsqueue_discard_aborted(queue);
-
-  irq_unlock(key);
-
   return true;
 }
 
@@ -269,19 +149,30 @@ bool tsqueue_full(tsqueue_t *queue) {
 
   tsqueue_discard_aborted(queue);
 
-  bool full = queue->entries[queue->wix].state != TSQUEUE_ENTRY_EMPTY;
+  bool full = queue->entries[queue->wix].used;
   irq_unlock(key);
   return full;
 }
 
-bool tsqueue_abort(tsqueue_t *queue, uint32_t id, uint8_t *data,
+bool tsqueue_empty(tsqueue_t *queue) {
+  irq_key_t key = irq_lock();
+
+  tsqueue_discard_aborted(queue);
+
+  bool empty = !queue->entries[queue->rix].used;
+
+  irq_unlock(key);
+
+  return empty;
+}
+
+bool tsqueue_abort(tsqueue_t *queue, int32_t id, uint8_t *data,
                    uint16_t max_len, uint16_t *len) {
   bool found = false;
   irq_key_t key = irq_lock();
 
   for (int i = 0; i < queue->qlen; i++) {
-    if (queue->entries[i].state != TSQUEUE_ENTRY_EMPTY &&
-        queue->entries[i].id == id) {
+    if (queue->entries[i].used && queue->entries[i].id == id) {
       queue->entries[i].aborted = true;
       if (len != NULL) {
         *len = queue->entries[i].len;

@@ -37,11 +37,6 @@
 
 #include <io/usb.h>
 
-// Whether USB data pins were connected on last check (USB configured)
-bool usb_connected_previously = true;
-uint8_t ble_connected_previously = false;
-bool ble_last_internal = false;
-
 uint32_t last_touch_sample_time = 0;
 
 #define CHECK_PARAM_RANGE(value, minimum, maximum)  \
@@ -74,6 +69,7 @@ uint32_t last_touch_sample_time = 0;
 /// POLL_WRITE: int  # wait until interface is writable
 ///
 /// BLE: int  # interface id of the BLE events
+/// BLE_EVENT: int # interface id for BLE events
 ///
 /// TOUCH: int  # interface id of the touch events
 /// TOUCH_START: int  # event id of touch start event
@@ -86,8 +82,7 @@ uint32_t last_touch_sample_time = 0;
 /// BUTTON_LEFT: int  # button number of left button
 /// BUTTON_RIGHT: int  # button number of right button
 
-/// USB_CHECK: int # interface id for check of USB data connection
-/// BLE_CHECK: int # interface id for check of BLE data connection
+/// USB_EVENT: int # interface id for USB events
 
 /// WireInterface = Union[HID, WebUSB, BleInterface]
 
@@ -105,7 +100,8 @@ STATIC const mp_rom_map_elem_t mp_module_trezorio_globals_table[] = {
 
 #ifdef USE_BLE
     {MP_ROM_QSTR(MP_QSTR_ble), MP_ROM_PTR(&mod_trezorio_BLE_module)},
-    {MP_ROM_QSTR(MP_QSTR_BLE), MP_ROM_INT(BLE_EVENTS_IFACE)},
+    {MP_ROM_QSTR(MP_QSTR_BLE), MP_ROM_INT(BLE_IFACE)},
+    {MP_ROM_QSTR(MP_QSTR_BLE_EVENT), MP_ROM_INT(BLE_EVENT_IFACE)},
 #endif
 #ifdef USE_TOUCH
     {MP_ROM_QSTR(MP_QSTR_TOUCH), MP_ROM_INT(TOUCH_IFACE)},
@@ -132,8 +128,7 @@ STATIC const mp_rom_map_elem_t mp_module_trezorio_globals_table[] = {
     {MP_ROM_QSTR(MP_QSTR_POLL_READ), MP_ROM_INT(POLL_READ)},
     {MP_ROM_QSTR(MP_QSTR_POLL_WRITE), MP_ROM_INT(POLL_WRITE)},
 
-    {MP_ROM_QSTR(MP_QSTR_USB_CHECK), MP_ROM_INT(USB_DATA_IFACE)},
-    {MP_ROM_QSTR(MP_QSTR_BLE_CHECK), MP_ROM_INT(BLE_EVENTS_IFACE)},
+    {MP_ROM_QSTR(MP_QSTR_USB_EVENT), MP_ROM_INT(USB_EVENT_IFACE)},
 };
 
 STATIC MP_DEFINE_CONST_DICT(mp_module_trezorio_globals,

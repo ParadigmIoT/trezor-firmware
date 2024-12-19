@@ -38,7 +38,10 @@
 #include <util/fwutils.h>
 #include <util/translations.h>
 #include <util/unit_properties.h>
+
+#ifdef USE_BLE
 #include <io/ble.h>
+#endif
 
 #ifdef USE_BUTTON
 #include <io/button.h>
@@ -213,8 +216,13 @@ __attribute((no_stack_protector)) void syscall_handler(uint32_t *args,
       usb_stop();
     } break;
 
-    case SYSCALL_USB_CONFIGURED: {
-      args[0] = usb_configured();
+    case SYSCALL_USB_GET_EVENT: {
+      args[0] = usb_get_event();
+    } break;
+
+    case SYSCALL_USB_GET_STATE: {
+      usb_state_t *state = (usb_state_t *)args[0];
+      usb_get_state__verified(state);
     } break;
 
     case SYSCALL_USB_HID_ADD: {
@@ -684,9 +692,9 @@ __attribute((no_stack_protector)) void syscall_handler(uint32_t *args,
       ble_get_state__verified(state);
     } break;
 
-    case SYSCALL_BLE_READ_EVENT: {
+    case SYSCALL_BLE_GET_EVENT: {
       ble_event_t *event = (ble_event_t *)args[0];
-      args[0] = ble_read_event__verified(event);
+      args[0] = ble_get_event__verified(event);
     } break;
 
     case SYSCALL_BLE_CAN_WRITE: {
@@ -697,6 +705,10 @@ __attribute((no_stack_protector)) void syscall_handler(uint32_t *args,
       uint8_t *data = (uint8_t *)args[0];
       size_t len = args[1];
       args[0] = ble_write__verified(data, len);
+    } break;
+
+    case SYSCALL_BLE_CAN_READ: {
+      args[0] = ble_can_read();
     } break;
 
     case SYSCALL_BLE_READ: {

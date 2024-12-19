@@ -22,12 +22,13 @@
 #include <trezor_bsp.h>
 #include <trezor_rtl.h>
 
+#include <io/nrf.h>
+#include <sys/irq.h>
+#include <sys/mpu.h>
+#include <sys/systick.h>
 #include <sys/tsqueue.h>
 
 #include <io/crc8.h>
-#include <sys/irq.h>
-#include <sys/mpu.h>
-#include <io/nrf.h>
 #include <io/nrf_internal.h>
 
 #define MAX_SPI_DATA_SIZE (244)
@@ -76,6 +77,7 @@ typedef struct {
   uint8_t urt_tx_buffers[UART_QUEUE_SIZE][sizeof(nrf_uart_tx_data_t)];
   tsqueue_entry_t urt_tx_queue_entries[UART_QUEUE_SIZE];
   tsqueue_t urt_tx_queue;
+  nrf_uart_tx_data_t urt_sending;
 
   uint8_t urt_rx_buf[UART_PACKET_SIZE];
   uint8_t urt_rx_len;
@@ -86,6 +88,7 @@ typedef struct {
   DMA_HandleTypeDef spi_dma;
   uint8_t spi_buffer[SPI_PACKET_SIZE];
 
+  int32_t urt_tx_msg_id;
   bool urt_tx_running;
   bool spi_rx_running;
   bool comm_running;
@@ -96,7 +99,7 @@ typedef struct {
 
 } nrf_driver_t;
 
-__attribute__((section(".buf"))) static nrf_driver_t g_nrf_driver = {0};
+static nrf_driver_t g_nrf_driver = {0};
 
 static void nrf_start(void) {
   nrf_driver_t *drv = &g_nrf_driver;
@@ -115,6 +118,30 @@ static void nrf_start(void) {
   nrf_signal_running();
 }
 
+static void nrf_abort_urt_comm(nrf_driver_t *drv) {
+  HAL_UART_AbortReceive(&drv->urt);
+  HAL_UART_AbortTransmit(&drv->urt);
+
+  if (drv->urt_sending.callback != NULL) {
+    drv->urt_sending.callback(NRF_STATUS_ERROR, drv->urt_sending.context);
+  }
+
+  drv->urt_rx_idx = 0;
+  drv->urt_rx_len = 0;
+  drv->urt_tx_msg_id = -1;
+  drv->urt_tx_running = false;
+
+  while (tsqueue_dequeue(&drv->urt_tx_queue, (uint8_t *)&drv->urt_sending,
+                         sizeof(nrf_uart_tx_data_t), NULL,
+                         &drv->urt_tx_msg_id)) {
+    drv->urt_sending.callback(NRF_STATUS_ERROR, drv->urt_sending.context);
+  }
+
+  memset(&drv->urt_sending, 0, sizeof(nrf_uart_tx_data_t));
+
+  tsqueue_reset(&drv->urt_tx_queue);
+}
+
 static void nrf_stop(void) {
   nrf_driver_t *drv = &g_nrf_driver;
   if (!drv->initialized) {
@@ -125,7 +152,7 @@ static void nrf_stop(void) {
   irq_key_t key = irq_lock();
   drv->comm_running = false;
   HAL_SPI_DMAStop(&drv->spi);
-  tsqueue_reset(&drv->urt_tx_queue);
+  nrf_abort_urt_comm(drv);
   irq_unlock(key);
 }
 
@@ -142,41 +169,50 @@ void nrf_init(void) {
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
-  __HAL_RCC_GPIOE_CLK_ENABLE();
 
   memset(drv, 0, sizeof(*drv));
   tsqueue_init(&drv->urt_tx_queue, drv->urt_tx_queue_entries,
                (uint8_t *)drv->urt_tx_buffers, sizeof(nrf_uart_tx_data_t),
                UART_QUEUE_SIZE);
 
-  GPIO_InitTypeDef GPIO_InitStructure;
+  GPIO_InitTypeDef GPIO_InitStructure = {0};
 
   // synchronization signals
+  NRF_OUT_RESET_CLK_ENA();
+  HAL_GPIO_WritePin(NRF_OUT_RESET_PORT, NRF_OUT_RESET_PIN, GPIO_PIN_SET);
   GPIO_InitStructure.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStructure.Pull = GPIO_PULLDOWN;
   GPIO_InitStructure.Speed = GPIO_SPEED_FREQ_LOW;
-  GPIO_InitStructure.Pin = GPIO_PIN_4;
-  HAL_GPIO_Init(GPIOE, &GPIO_InitStructure);
-  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_4, GPIO_PIN_RESET);
+  GPIO_InitStructure.Pin = NRF_OUT_RESET_PIN;
+  HAL_GPIO_Init(NRF_OUT_RESET_PORT, &GPIO_InitStructure);
 
+  NRF_IN_GPIO0_CLK_ENA();
   GPIO_InitStructure.Mode = GPIO_MODE_INPUT;
   GPIO_InitStructure.Pull = GPIO_PULLDOWN;
   GPIO_InitStructure.Speed = GPIO_SPEED_FREQ_LOW;
-  GPIO_InitStructure.Pin = GPIO_PIN_5;
-  HAL_GPIO_Init(GPIOE, &GPIO_InitStructure);
+  GPIO_InitStructure.Pin = NRF_IN_GPIO0_PIN;
+  HAL_GPIO_Init(NRF_IN_GPIO0_PORT, &GPIO_InitStructure);
 
+  NRF_IN_FW_RUNNING_CLK_ENA();
   GPIO_InitStructure.Mode = GPIO_MODE_INPUT;
   GPIO_InitStructure.Pull = GPIO_PULLDOWN;
-  GPIO_InitStructure.Alternate = 0;
   GPIO_InitStructure.Speed = GPIO_SPEED_FREQ_LOW;
-  GPIO_InitStructure.Pin = GPIO_PIN_6;
-  HAL_GPIO_Init(GPIOE, &GPIO_InitStructure);
+  GPIO_InitStructure.Pin = NRF_IN_FW_RUNNING_PIN;
+  HAL_GPIO_Init(NRF_IN_FW_RUNNING_PORT, &GPIO_InitStructure);
 
+  NRF_OUT_STAY_IN_BLD_CLK_ENA();
   GPIO_InitStructure.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStructure.Pull = GPIO_PULLDOWN;
+  GPIO_InitStructure.Pull = GPIO_NOPULL;
   GPIO_InitStructure.Speed = GPIO_SPEED_FREQ_LOW;
-  GPIO_InitStructure.Pin = GPIO_PIN_2;
-  HAL_GPIO_Init(GPIOE, &GPIO_InitStructure);
+  GPIO_InitStructure.Pin = NRF_OUT_STAY_IN_BLD_PIN;
+  HAL_GPIO_Init(NRF_OUT_STAY_IN_BLD_PORT, &GPIO_InitStructure);
+
+  NRF_OUT_FW_RUNNING_CLK_ENA();
+  GPIO_InitStructure.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStructure.Pull = GPIO_NOPULL;
+  GPIO_InitStructure.Speed = GPIO_SPEED_FREQ_LOW;
+  GPIO_InitStructure.Pin = NRF_OUT_FW_RUNNING_PIN;
+  HAL_GPIO_Init(NRF_OUT_FW_RUNNING_PORT, &GPIO_InitStructure);
 
 // UART communication - setup UART3 rts (pb1), tx (pb10), and rx (pb11)
   GPIO_InitStructure.Pin = GPIO_PIN_1 | GPIO_PIN_10 | GPIO_PIN_11;
@@ -199,29 +235,32 @@ void nrf_init(void) {
   drv->urt.Instance = USART3;
   drv->urt.hdmatx = &drv->urt_tx_dma;
 
-  // UART DMA Configuration - Updated for STM32U5 GPDMA
-  drv->urt_tx_dma.Init.Request = GPDMA1_REQUEST_USART3_TX;
   drv->urt_tx_dma.Init.Direction = DMA_MEMORY_TO_PERIPH;
+  drv->urt_tx_dma.Init.Mode = DMA_NORMAL;
+  drv->urt_tx_dma.Instance = GPDMA1_Channel1;
+  drv->urt_tx_dma.Init.Request = GPDMA1_REQUEST_USART3_TX;
+  drv->urt_tx_dma.Init.BlkHWRequest = DMA_BREQ_SINGLE_BURST;
   drv->urt_tx_dma.Init.SrcInc = DMA_SINC_INCREMENTED;
   drv->urt_tx_dma.Init.DestInc = DMA_DINC_FIXED;
   drv->urt_tx_dma.Init.SrcDataWidth = DMA_SRC_DATAWIDTH_BYTE;
   drv->urt_tx_dma.Init.DestDataWidth = DMA_DEST_DATAWIDTH_BYTE;
-  drv->urt_tx_dma.Init.Priority = DMA_LOW_PRIORITY_LOW_WEIGHT;
+  drv->urt_tx_dma.Init.Priority = DMA_LOW_PRIORITY_HIGH_WEIGHT;
   drv->urt_tx_dma.Init.SrcBurstLength = 1;
   drv->urt_tx_dma.Init.DestBurstLength = 1;
-  drv->urt_tx_dma.Init.TransferAllocatedPort = DMA_SRC_ALLOCATED_PORT0|DMA_DEST_ALLOCATED_PORT1;
-  drv->urt_tx_dma.Instance = GPDMA1_Channel7;
+  drv->urt_tx_dma.Init.TransferAllocatedPort =
+      DMA_SRC_ALLOCATED_PORT1 | DMA_DEST_ALLOCATED_PORT0;
+  drv->urt_tx_dma.Init.TransferEventMode = DMA_TCEM_BLOCK_TRANSFER;
+
   drv->urt_tx_dma.Parent = &drv->urt;
   HAL_DMA_Init(&drv->urt_tx_dma);
+  HAL_DMA_ConfigChannelAttributes(
+      &drv->urt_tx_dma, DMA_CHANNEL_PRIV | DMA_CHANNEL_SEC |
+                            DMA_CHANNEL_SRC_SEC | DMA_CHANNEL_DEST_SEC);
 
   HAL_UART_Init(&drv->urt);
-  
-  // __HAL_LINKDMA(drv->urt, hdmatx, drv->urt_tx_dma);
 
-  // HAL_DMA_ConfigChannelAttributes(&(drv->urt_tx_dma), DMA_CHANNEL_NPRIV)
-
-  NVIC_SetPriority(GPDMA1_Channel7_IRQn, IRQ_PRI_NORMAL); // Updated IRQ
-  NVIC_EnableIRQ(GPDMA1_Channel7_IRQn);
+  NVIC_SetPriority(GPDMA1_Channel1_IRQn, IRQ_PRI_NORMAL);
+  NVIC_EnableIRQ(GPDMA1_Channel1_IRQn);
   NVIC_SetPriority(USART3_IRQn, IRQ_PRI_NORMAL);
   NVIC_EnableIRQ(USART3_IRQn);
 
@@ -235,19 +274,26 @@ void nrf_init(void) {
   GPIO_InitStructure.Pin = GPIO_PIN_3 | GPIO_PIN_4;
   HAL_GPIO_Init(GPIOD, &GPIO_InitStructure);
 
-  // SPI DMA Configuration - Updated for STM32U5 GPDMA
-  drv->spi_dma.Init.Request = GPDMA1_REQUEST_SPI2_RX;
+  drv->spi_dma.Instance = GPDMA1_Channel2;
   drv->spi_dma.Init.Direction = DMA_PERIPH_TO_MEMORY;
+  drv->spi_dma.Init.Mode = DMA_NORMAL;
+  drv->spi_dma.Init.Request = GPDMA1_REQUEST_SPI2_RX;
+  drv->spi_dma.Init.BlkHWRequest = DMA_BREQ_SINGLE_BURST;
   drv->spi_dma.Init.SrcInc = DMA_SINC_FIXED;
   drv->spi_dma.Init.DestInc = DMA_DINC_INCREMENTED;
   drv->spi_dma.Init.SrcDataWidth = DMA_SRC_DATAWIDTH_BYTE;
   drv->spi_dma.Init.DestDataWidth = DMA_DEST_DATAWIDTH_BYTE;
-  drv->spi_dma.Init.Priority = DMA_LOW_PRIORITY_LOW_WEIGHT;
+  drv->spi_dma.Init.Priority = DMA_LOW_PRIORITY_HIGH_WEIGHT;
   drv->spi_dma.Init.SrcBurstLength = 1;
   drv->spi_dma.Init.DestBurstLength = 1;
-  drv->spi_dma.Init.TransferAllocatedPort = DMA_SRC_ALLOCATED_PORT0|DMA_DEST_ALLOCATED_PORT1;
-  drv->spi_dma.Instance = GPDMA1_Channel3;
+  drv->spi_dma.Init.TransferAllocatedPort =
+      DMA_SRC_ALLOCATED_PORT1 | DMA_DEST_ALLOCATED_PORT0;
+  drv->spi_dma.Init.TransferEventMode = DMA_TCEM_BLOCK_TRANSFER;
+
   HAL_DMA_Init(&drv->spi_dma);
+  HAL_DMA_ConfigChannelAttributes(
+      &drv->spi_dma, DMA_CHANNEL_PRIV | DMA_CHANNEL_SEC | DMA_CHANNEL_SRC_SEC |
+                         DMA_CHANNEL_DEST_SEC);
 
   drv->spi.Instance = SPI2;
   drv->spi.Init.Mode = SPI_MODE_SLAVE;
@@ -267,8 +313,10 @@ void nrf_init(void) {
 
   HAL_SPI_Init(&drv->spi);
 
-  NVIC_SetPriority(GPDMA1_Channel3_IRQn, IRQ_PRI_NORMAL); // Updated IRQ
-  NVIC_EnableIRQ(GPDMA1_Channel3_IRQn);
+  NVIC_SetPriority(GPDMA1_Channel2_IRQn, IRQ_PRI_NORMAL);
+  NVIC_EnableIRQ(GPDMA1_Channel2_IRQn);
+  NVIC_SetPriority(SPI1_IRQn, IRQ_PRI_NORMAL);
+  NVIC_EnableIRQ(SPI1_IRQn);
 
   drv->initialized = true;
 
@@ -358,67 +406,66 @@ uint32_t nrf_dfu_comm_receive(uint8_t *data, uint32_t len) {
 /// UART communication
 /// ---------------------------------------------------------
 
-uint32_t nrf_send_msg(nrf_service_id_t service, const uint8_t *data,
-                      uint32_t len,
-                      void (*callback)(nrf_status_t status, void *context),
-                      void *context) {
+int32_t nrf_send_msg(nrf_service_id_t service, const uint8_t *data,
+                     uint32_t len,
+                     void (*callback)(nrf_status_t status, void *context),
+                     void *context) {
   nrf_driver_t *drv = &g_nrf_driver;
   if (!drv->initialized) {
-    return 0;
+    return -1;
   }
 
   if (len > NRF_MAX_TX_DATA_SIZE) {
-    return 0;
+    return -1;
   }
 
   if (service > NRF_SERVICE_CNT) {
-    return 0;
+    return -1;
   }
 
-  uint32_t id = 0;
+  int32_t id = 0;
 
-  nrf_uart_tx_data_t *buffer =
-      (nrf_uart_tx_data_t *)tsqueue_allocate(&drv->urt_tx_queue, &id);
+  nrf_uart_tx_data_t buffer;
 
-  if (buffer == NULL) {
-    return 0;
-  }
-
-  buffer->callback = callback;
-  buffer->context = context;
-  buffer->len = len + UART_OVERHEAD_SIZE;
+  buffer.callback = callback;
+  buffer.context = context;
+  buffer.len = len + UART_OVERHEAD_SIZE;
 
   uart_header_t header = {
       .service_id = 0xA0 | (uint8_t)service,
       .msg_len = len + UART_OVERHEAD_SIZE,
   };
-  memcpy(buffer->data, &header, UART_HEADER_SIZE);
+  memcpy(buffer.data, &header, UART_HEADER_SIZE);
 
-  memcpy(&buffer->data[UART_HEADER_SIZE], data, len);
+  memcpy(&buffer.data[UART_HEADER_SIZE], data, len);
 
   uart_footer_t footer = {
-      .crc = crc8(buffer->data, len + UART_HEADER_SIZE, 0x07, 0x00, false),
+      .crc = crc8(buffer.data, len + UART_HEADER_SIZE, 0x07, 0x00, false),
   };
-  memcpy(&buffer->data[UART_HEADER_SIZE + len], &footer, UART_FOOTER_SIZE);
+  memcpy(&buffer.data[UART_HEADER_SIZE + len], &footer, UART_FOOTER_SIZE);
 
-  tsqueue_finalize(&drv->urt_tx_queue, (uint8_t *)buffer,
-                   sizeof(nrf_uart_tx_data_t));
+  if (!tsqueue_enqueue(&drv->urt_tx_queue, (uint8_t *)&buffer,
+                       sizeof(nrf_uart_tx_data_t), &id)) {
+    return -1;
+  }
 
   irq_key_t key = irq_lock();
   if (!drv->urt_tx_running) {
-    nrf_uart_tx_data_t *send_buffer =
-        (nrf_uart_tx_data_t *)tsqueue_process(&drv->urt_tx_queue, NULL);
-    if (send_buffer != NULL) {
-      HAL_UART_Transmit_DMA(&drv->urt, send_buffer->data, send_buffer->len);
+    int32_t tx_id = 0;
+    if (tsqueue_dequeue(&drv->urt_tx_queue, (uint8_t *)&drv->urt_sending,
+                        sizeof(nrf_uart_tx_data_t), NULL, &tx_id)) {
+      HAL_UART_Transmit_DMA(&drv->urt, drv->urt_sending.data,
+                            drv->urt_sending.len);
+      drv->urt_tx_msg_id = tx_id;
+      drv->urt_tx_running = true;
     }
-    drv->urt_tx_running = true;
   }
   irq_unlock(key);
 
   return id;
 }
 
-bool nrf_abort_msg(uint32_t id) {
+bool nrf_abort_msg(int32_t id) {
   nrf_driver_t *drv = &g_nrf_driver;
   if (!drv->initialized) {
     return false;
@@ -426,11 +473,16 @@ bool nrf_abort_msg(uint32_t id) {
 
   bool aborted = tsqueue_abort(&drv->urt_tx_queue, id, NULL, 0, NULL);
 
-  if (!aborted) {
-    return false;
+  if (aborted) {
+    return true;
   }
 
-  return true;
+  if (drv->urt_tx_msg_id == id) {
+    drv->urt_tx_msg_id = -1;
+    return true;
+  }
+
+  return false;
 }
 
 static bool nrf_is_valid_startbyte(uint8_t val) {
@@ -511,13 +563,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *urt) {
 void HAL_UART_ErrorCallback(UART_HandleTypeDef *urt) {
   nrf_driver_t *drv = &g_nrf_driver;
   if (drv->initialized && urt == &drv->urt) {
-    HAL_UART_AbortReceive(urt);
-    HAL_UART_AbortTransmit(urt);
-
-    tsqueue_reset(&drv->urt_tx_queue);
-
-    drv->urt_rx_idx = 0;
-    drv->urt_rx_len = 0;
+    nrf_abort_urt_comm(drv);
 
     HAL_UART_Receive_IT(&drv->urt, &drv->urt_rx_byte, 1);
   }
@@ -526,19 +572,18 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *urt) {
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *urt) {
   nrf_driver_t *drv = &g_nrf_driver;
   if (drv->initialized && urt == &drv->urt) {
-    nrf_uart_tx_data_t sent;
-    bool aborted = false;
-    if (tsqueue_process_done(&drv->urt_tx_queue, (uint8_t *)&sent, sizeof(sent),
-                             NULL, &aborted)) {
-      if (!aborted && sent.callback != NULL) {
-        sent.callback(NRF_STATUS_OK, sent.context);
-      }
+    if (drv->urt_tx_msg_id >= 0 && (drv->urt_sending.callback != NULL)) {
+      drv->urt_sending.callback(NRF_STATUS_OK, drv->urt_sending.context);
+      drv->urt_tx_msg_id = -1;
+      memset(&drv->urt_sending, 0, sizeof(nrf_uart_tx_data_t));
     }
 
-    nrf_uart_tx_data_t *send_buffer =
-        (nrf_uart_tx_data_t *)tsqueue_process(&drv->urt_tx_queue, NULL);
-    if (send_buffer != NULL) {
-      HAL_UART_Transmit_DMA(&drv->urt, send_buffer->data, send_buffer->len);
+    bool msg =
+        tsqueue_dequeue(&drv->urt_tx_queue, (uint8_t *)&drv->urt_sending,
+                        sizeof(nrf_uart_tx_data_t), NULL, &drv->urt_tx_msg_id);
+    if (msg) {
+      HAL_UART_Transmit_DMA(&drv->urt, drv->urt_sending.data,
+                            drv->urt_sending.len);
       drv->urt_tx_running = true;
     } else {
       drv->urt_tx_running = false;
@@ -548,6 +593,7 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *urt) {
 
 void USART3_IRQHandler(void) {
   IRQ_LOG_ENTER();
+
   mpu_mode_t mpu_mode = mpu_reconfig(MPU_MODE_DEFAULT);
 
   nrf_driver_t *drv = &g_nrf_driver;
@@ -560,8 +606,9 @@ void USART3_IRQHandler(void) {
   IRQ_LOG_EXIT();
 }
 
-void GPDMA1_Channel7_IRQHandler(void) {
+void GPDMA1_Channel1_IRQHandler(void) {
   IRQ_LOG_ENTER();
+
   mpu_mode_t mpu_mode = mpu_reconfig(MPU_MODE_DEFAULT);
 
   nrf_driver_t *drv = &g_nrf_driver;
@@ -588,13 +635,29 @@ static bool start_spi_dma(nrf_driver_t *drv) {
   return true;
 }
 
-void DMA1_Stream3_IRQHandler(void) {
+void GPDMA1_Channel2_IRQHandler(void) {
   IRQ_LOG_ENTER();
+
   mpu_mode_t mpu_mode = mpu_reconfig(MPU_MODE_DEFAULT);
 
   nrf_driver_t *drv = &g_nrf_driver;
   if (drv->initialized) {
     HAL_DMA_IRQHandler(&drv->spi_dma);
+  }
+
+  mpu_restore(mpu_mode);
+
+  IRQ_LOG_EXIT();
+}
+
+void SPI1_IRQHandler(void) {
+  IRQ_LOG_ENTER();
+
+  mpu_mode_t mpu_mode = mpu_reconfig(MPU_MODE_DEFAULT);
+
+  nrf_driver_t *drv = &g_nrf_driver;
+  if (drv->initialized) {
+    HAL_SPI_IRQHandler(&drv->spi);
   }
 
   mpu_restore(mpu_mode);
@@ -637,46 +700,41 @@ void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi) {
 /// ---------------------------------------------------------
 
 bool nrf_reboot_to_bootloader(void) {
-  uint32_t tick_start = 0;
+  HAL_GPIO_WritePin(NRF_OUT_RESET_PORT, NRF_OUT_RESET_PIN, GPIO_PIN_RESET);
 
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_SET);
-  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_1, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(NRF_OUT_STAY_IN_BLD_PORT, NRF_OUT_STAY_IN_BLD_PIN,
+                    GPIO_PIN_SET);
 
-  HAL_Delay(10);
-  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_1, GPIO_PIN_SET);
+  systick_delay_ms(50);
 
-  tick_start = HAL_GetTick();
+  HAL_GPIO_WritePin(NRF_OUT_RESET_PORT, NRF_OUT_RESET_PIN, GPIO_PIN_SET);
 
-  while (HAL_GPIO_ReadPin(GPIOE, GPIO_PIN_5) == GPIO_PIN_RESET) {
-    if (HAL_GetTick() - tick_start > 4000) {
-      return false;
-    }
-  }
-
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_RESET);
-
-  HAL_Delay(1000);
+  systick_delay_ms(1000);
 
   return true;
 }
 
 bool nrf_reboot(void) {
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_SET);
-  HAL_Delay(50);
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(NRF_OUT_RESET_PORT, NRF_OUT_RESET_PIN, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(NRF_OUT_STAY_IN_BLD_PORT, NRF_OUT_STAY_IN_BLD_PIN,
+                    GPIO_PIN_RESET);
+  systick_delay_ms(50);
+  HAL_GPIO_WritePin(NRF_OUT_RESET_PORT, NRF_OUT_RESET_PIN, GPIO_PIN_RESET);
   return true;
 }
 
 void nrf_signal_running(void) {
-  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_2, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(NRF_OUT_FW_RUNNING_PORT, NRF_OUT_FW_RUNNING_PIN,
+                    GPIO_PIN_SET);
 }
 
 void nrf_signal_off(void) {
-  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_2, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(NRF_OUT_FW_RUNNING_PORT, NRF_OUT_FW_RUNNING_PIN,
+                    GPIO_PIN_RESET);
 }
 
 bool nrf_firmware_running(void) {
-  return HAL_GPIO_ReadPin(GPIOE, GPIO_PIN_6) != 0;
+  return HAL_GPIO_ReadPin(NRF_IN_FW_RUNNING_PORT, NRF_IN_FW_RUNNING_PIN) != 0;
 }
 
 bool nrf_is_running(void) {
