@@ -69,6 +69,9 @@ if FEATURE_FLAGS["SYSTEM_VIEW"]:
     CPPDEFINES_MOD += ['SYSTEM_VIEW']
     CCFLAGS_MOD += '-DSYSTEM_VIEW '
 ```
+> **Warning:** If `PYOPT` is used to build, then USB connection will not work as expected.
+```
+
 3. Rebuild using the build instructions mentioned above, but replace the 4th command with:
     ```sh
     make -j build PYOPT=0 BITCOIN_ONLY=1 V=1 VERBOSE=1 TREZOR_MODEL=DISC2 BOOTLOADER_DEVEL=1 SYSTEM_VIEW=1

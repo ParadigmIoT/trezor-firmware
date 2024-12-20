@@ -5,7 +5,7 @@
 #include "bootloaders/bootloader_hashes.h"
 
 #define MODEL_NAME "D002"
-#define MODEL_FULL_NAME "ParadigmIoT DI 2"
+#define MODEL_FULL_NAME "ParadigmIoT DIY 2"
 #define MODEL_INTERNAL_NAME "D002"
 #define MODEL_INTERNAL_NAME_TOKEN D002
 #define MODEL_NAME_QSTR MP_QSTR_D002
