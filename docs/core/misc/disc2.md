@@ -17,16 +17,14 @@ To build for the Discovery 2 DK, follow these steps:
 
 # Flashing Instructions
 
-## Using STM32CubeProgrammer
+### Using STM32CubeProgrammer
 
 1. Install [STM32CubeProgrammer](https://www.st.com/en/development-tools/stm32cubeprog.html).
 2. Connect the DISC2 device via ST-Link or J-Link in Hot Plug mode. If connecting via J-Link, connect via J-Link JTAG connector to CN3 with jumpers on JP1, JP4 (CHGR), JP2, JP3, and JP6. Connect USB ST-LINK (micro-b) for power.
 3. Open STM32CubeProgrammer and select the `core/build/prodtest/combined.bin` file.
 4. Flash the selected file to the DISC2 device.
 
-> **Warning:** TZEN will be enabled after flashing. This is normal and will allow future reflashing using the process described above.
-
-## Using J-Link
+### Using J-Link
 
 1. Create a `script.jlink` file with the following contents:
     ```sh
@@ -44,6 +42,8 @@ To build for the Discovery 2 DK, follow these steps:
     ```sh
     ./JLink.exe -CommanderScript ./script.jlink
     ```
+
+> **Warning:** TZEN will be enabled after flashing. This is normal and will allow future reflashing using the process described above.
 
 # Enabling System View and RTT
 
@@ -70,7 +70,6 @@ if FEATURE_FLAGS["SYSTEM_VIEW"]:
     CCFLAGS_MOD += '-DSYSTEM_VIEW '
 ```
 > **Warning:** If `PYOPT` is used to build, then USB connection will not work as expected.
-```
 
 3. Rebuild using the build instructions mentioned above, but replace the 4th command with:
     ```sh
@@ -78,6 +77,6 @@ if FEATURE_FLAGS["SYSTEM_VIEW"]:
     ```
 
 
-# Open in Ozone
+# Debug in Ozone
 
-1. To debug firmware in Ozone J-Link debugger, open trezor.jdebug file
+To debug firmware in Ozone J-Link debugger, open trezor.jdebug file
