@@ -20,7 +20,7 @@ To build for the Discovery 2 DK, follow these steps:
 ### Using STM32CubeProgrammer
 
 1. Install [STM32CubeProgrammer](https://www.st.com/en/development-tools/stm32cubeprog.html).
-2. Connect the DISC2 device via ST-Link or J-Link in Hot Plug mode. If connecting via J-Link, connect via J-Link JTAG connector to CN3 with jumpers on JP1, JP4 (CHGR), JP2, JP3, and JP6. Connect USB ST-LINK (micro-b) for power.
+2. Connect the DISC2 device via ST-Link or J-Link in Hot Plug mode. If connecting via J-Link, connect via J-Link JTAG connector to CN3 or Cortex Debug 10-pin Connector to CN11. Ensure jumpers are on JP1, JP4 (CHGR), JP2, JP3, and JP6. Connect USB ST-LINK (micro-b) for power.
 3. Open STM32CubeProgrammer and select the `core/build/prodtest/combined.bin` file.
 4. Flash the selected file to the DISC2 device.
 
@@ -37,7 +37,7 @@ To build for the Discovery 2 DK, follow these steps:
     exit
     ```
     Replace `core/build/prodtest/combined.bin` with the actual path to your `combined.bin` file if it differs.
-2. Connect via J-Link JTAG connector to CN3 with jumpers on JP1, JP4 (CHGR), JP2, JP3, and JP6. Connect USB ST-LINK (micro-b) for power.
+2. Connect via J-Link JTAG connector to CN3 or Cortex Debug 10-pin Connector to CN11. Ensure jumpers are on JP1, JP4 (CHGR), JP2, JP3, and JP6. Connect USB ST-LINK (micro-b) for power.
 3. Run the script using the following command:
     ```sh
     ./JLink.exe -CommanderScript ./script.jlink
