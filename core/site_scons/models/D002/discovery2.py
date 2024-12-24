@@ -93,6 +93,16 @@ def configure(
         paths += ["embed/io/button/inc"]
         features_available.append("button")
 
+    if "optiga" in features_wanted:
+        sources += ["embed/sec/optiga/stm32/optiga_hal.c"]
+        sources += ["embed/sec/optiga/optiga.c"]
+        sources += ["embed/sec/optiga/optiga_commands.c"]
+        sources += ["embed/sec/optiga/optiga_transport.c"]
+        sources += ["vendor/trezor-crypto/hash_to_curve.c"]
+        paths += ["embed/sec/optiga/inc"]
+        features_available.append("optiga")
+        defines += [("USE_OPTIGA", "1")]
+
     defines += [
         "USE_DMA2D",
         ("UI_COLOR_32BIT", "1"),
