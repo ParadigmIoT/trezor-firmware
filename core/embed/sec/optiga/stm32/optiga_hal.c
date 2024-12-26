@@ -8,16 +8,6 @@
 
 void optiga_hal_init(void) {
   GPIO_InitTypeDef GPIO_InitStructure = {0};
-  
-#ifdef STM32U5A9J_DK_H_
-  OPTIGA_I2C_1_CLK_EN();
-  GPIO_InitStructure.Mode = GPIO_MODE_AF_OD;
-  GPIO_InitStructure.Pull = GPIO_NOPULL;
-  GPIO_InitStructure.Speed = GPIO_SPEED_FREQ_LOW;
-  GPIO_InitStructure.Alternate = OPTIGA_ALTERNATE_FUNCTION;
-  GPIO_InitStructure.Pin = OPTIGA_I2C_1_SDA_PIN | OPTIGA_I2C_1_SCL_PIN;
-  HAL_GPIO_Init(OPTIGA_I2C_1_PORT, &GPIO_InitStructure);
-#endif
 
   OPTIGA_RST_CLK_EN();
   // init reset pin
