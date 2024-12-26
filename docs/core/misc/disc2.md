@@ -80,3 +80,42 @@ if FEATURE_FLAGS["SYSTEM_VIEW"]:
 # Debug in Ozone
 
 To debug firmware in Ozone J-Link debugger, open trezor.jdebug file
+
+# Wiring
+
+## Wiring
+
+### STM32U5G9J-DK1 <------> NRF52840DK
+
+**UART3 <------> UART0:**
+- PA6  - CTS   <------>  P0.07 - CTS
+- PB1  - RTS   <------>  P0.05 - RTS
+- PB10 - TX    <------>  P0.06 - TX
+- PB11 - RX    <------>  P0.08 - RX
+
+**SPI <------> SPI0:**
+- PD3  - MISO  <------>  P0.29 - MISO
+- PB12 - NSS   <------>  P1.01 - CS
+- PB13 - SCK   <------>  P0.27 - SCK
+- PD4  - MOSI  <------>  P0.26 - MOSI
+
+**Additional SPI Connections:**
+- PD12 - DFU UNKNOWN 1 <------> UNKNOWN
+- PE4  - RESET         <------> P0.18 - RESET
+- PE5  - RESET         <------> P0.18 - RESET
+- PE6  - LED 3         <------> P0.15 - LED 3
+- PE2  - DFU UNKNOWN 2 <------> UNKNOWN
+
+### OPTIGA (I2C)
+
+**I2C2 <------> OPTIGA BOARD EK:**
+- PF1  - SCL   <------>  OPTIGA SCL
+- PF0  - SDA   <------>  OPTIGA SDA
+- PB4  - RST   <------>  OPTIGA RST
+- 3v3  - PIN 7 <------>  OPTIGA 3v3
+
+### ACCELEROMETER (I2C)
+
+**I2C1:**
+- PG14 - SCL
+- PG13 - SDA
