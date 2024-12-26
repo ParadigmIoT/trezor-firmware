@@ -83,8 +83,6 @@ To debug firmware in Ozone J-Link debugger, open trezor.jdebug file
 
 # Wiring
 
-## Wiring
-
 ### STM32U5G9J-DK1 <------> NRF52840DK
 
 **UART3 <------> UART0:**
